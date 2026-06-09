@@ -42,7 +42,7 @@
   />
 </div>
 
-<div class="fixed top-4 right-4 z-[100] max-md:sticky max-md:inset-x-0 max-md:top-0">
+<div class="fixed top-4 right-4 z-100 max-md:sticky max-md:inset-x-0 max-md:top-0">
   <ControlPanel
     {voices}
     {isPlaying}
