@@ -46,5 +46,12 @@
     "typescript-eslint": "^8.58.1",
     "vite": "^8.0.7",
     "wrangler": "^4.81.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.0",
+    "@lezer/highlight": "^1.2.3"
   }
 }

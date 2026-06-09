@@ -295,18 +295,15 @@
 
   // Sync volume changes from props into the engine. setVolume writes into the
   // stable midiVol array the synth reads live per note, so no setSynVars() is
-  // needed. By-reference form because the body calls setVolume() and the
-  // autofixer flags any call inside an inline $effect. `voices` is read in full
-  // each run, so every change is tracked.
-  function syncVolumes() {
+  // needed. `voices` is read in full each run, so every change is tracked.
+  $effect(() => {
     for (let i = 0; i < voices.length; i++) {
       mLib.setVolume(i, voices[i]);
     }
-  }
-  $effect(syncVolumes);
+  });
 
   // Drive engine play/stop from isPlaying.
-  function syncPlayState() {
+  $effect(() => {
     // Read `isPlaying` BEFORE the early return so it's always tracked as a
     // dependency. The guard reads non-reactive vendor state (`ntsSeq`), so on
     // the first run (before the song finishes rendering) we'd otherwise bail
@@ -321,23 +318,19 @@
     } else {
       mLib.stop_markeer();
     }
-  }
-  $effect(syncPlayState);
+  });
 
   // Push speed changes into the engine; read live each playback tick in
-  // markeer(), so mid-song changes apply immediately. By-reference form: the
-  // body's only statement is the mLib.setTempo() call, and the autofixer flags
-  // any call placed directly inside an inline $effect arrow.
-  function syncSpeed() {
+  // markeer(), so mid-song changes apply immediately.
+  $effect(() => {
     mLib.setTempo(speed);
-  }
-  $effect(syncSpeed);
+  });
 
   // Re-render the score whenever `abc` changes (live editing). `abc` and
   // `canRender` are both read up front so the effect tracks them. First render
   // is immediate; subsequent edits are debounced, and the returned cleanup
   // clears a pending timer when `abc` changes again or the component unmounts.
-  function scheduleRender() {
+  $effect(() => {
     const text = abc;
     if (!canRender) return;
     if (firstRender) {
@@ -347,8 +340,7 @@
     }
     const timer = setTimeout(() => renderNow(text), renderDebounceMs);
     return () => clearTimeout(timer);
-  }
-  $effect(scheduleRender);
+  });
 </script>
 
 {#if loading}
