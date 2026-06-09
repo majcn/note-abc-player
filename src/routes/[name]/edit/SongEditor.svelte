@@ -4,7 +4,7 @@
   // CodeEditor (and CodeMirror) is imported statically: this component is only
   // reached via the edit route, so route-level code-splitting already keeps it
   // out of the read-only route's bundle. No dynamic import needed.
-  import CodeEditor from '$lib/components/CodeEditor.svelte';
+  import { CodeEditor } from '$lib/components/CodeEditor';
 
   let { abc }: { abc: string } = $props();
 

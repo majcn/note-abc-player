@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ControlPanel } from '$lib/components/ControlPanel';
   import { MusicSheet } from '$lib/components/MusicSheet';
-  import ErrorToast from '$lib/components/ErrorToast.svelte';
+  import { ErrorToast } from '$lib/components/ErrorToast';
 
   // The shared playback surface: rendered sheet + transport controls + error
   // toast, plus the player state they exchange. Both the read-only SongView and
