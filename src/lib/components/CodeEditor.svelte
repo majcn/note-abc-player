@@ -44,8 +44,12 @@
       '&.cm-focused': { outline: 'none' },
       '.cm-content': { caretColor: '#c9d1d9' },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#c9d1d9' },
-      '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-        backgroundColor: '#264f78'
+      // drawSelection() paints its own layer. CodeMirror's dark base theme
+      // styles the focused selection with a high-specificity selector
+      // (&dark.cm-focused > .cm-scroller > .cm-selectionLayer ...), so !important
+      // is the reliable way to win for both focused and unfocused selections.
+      '.cm-selectionLayer .cm-selectionBackground, ::selection': {
+        backgroundColor: '#2f81f7 !important'
       },
       '.cm-activeLine': { backgroundColor: '#161b2233' },
       '.cm-gutters': {
@@ -95,12 +99,28 @@
     return () => view?.destroy();
   };
 
-  // Move the cursor to a source offset, scroll it into view, and focus the
-  // editor. Called by the parent when a note in the rendered sheet is clicked.
+  // Select the note token at a source offset, scroll it into view, and focus the
+  // editor. Called by the parent when a note in the rendered sheet is clicked —
+  // selecting (not just placing a cursor) makes it obvious where the note landed.
+  // The offset points at the note head; we expand left over leading accidentals
+  // (^ _ =) and right over the note body (letter, octave marks, duration) while
+  // stopping before the next note's accidental.
+  const ACCIDENTAL = /[\^_=]/;
+  const NOTE_BODY = /[A-Ga-gxzXZ,'0-9/]/;
   export function goToOffset(pos: number) {
     if (!view || !Number.isFinite(pos)) return;
-    const anchor = Math.max(0, Math.min(pos, view.state.doc.length));
-    view.dispatch({ selection: { anchor }, scrollIntoView: true });
+    const doc = view.state.doc;
+    const head = Math.max(0, Math.min(pos, doc.length));
+    const at = (i: number) => doc.sliceString(i, i + 1);
+
+    let from = head;
+    while (from > 0 && ACCIDENTAL.test(at(from - 1))) from--;
+
+    let to = head;
+    // Always consume the head char, then continue over note-body chars.
+    while (to < doc.length && (to === head || NOTE_BODY.test(at(to)))) to++;
+
+    view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
     view.focus();
   }
 </script>

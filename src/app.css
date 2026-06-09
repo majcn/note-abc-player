@@ -31,3 +31,14 @@
   --default-font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
 }
+
+/*
+  abc2svg appends a fixed, full-viewport-width scroll/alignment line (#rollijn)
+  to <body>. SongView sets --sheet-left to the sheet pane's left edge so the line
+  stays within the sheet and doesn't run across the editor. !important because
+  the engine injects its own #rollijn width:100% rule at runtime.
+*/
+#rollijn {
+  left: var(--sheet-left, 0px) !important;
+  width: calc(100% - var(--sheet-left, 0px)) !important;
+}
