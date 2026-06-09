@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import type { Attachment } from 'svelte/attachments';
   import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
   import * as sLib from '$lib/xmlplay/xmlplay_syn.js';
   import commonAbc from '$lib/xmlplay/common.abc?raw';
@@ -28,23 +29,28 @@
 
   let { abc, voices, speed, isPlaying, onLoad, onBpmChange, onPlayingChange, onError }: Props = $props();
 
-  // abcElm: engine host DOM element. Set by the {@attach} on mount; not reactive
-  // (the engine mutates it imperatively).
+  // abcElm: engine host DOM element. Set by the {@attach initEngine} on mount;
+  // not reactive (the engine mutates it imperatively).
   let abcElm: HTMLDivElement | null = null;
   let loading = $state(true);
+
+  // Re-render trigger. canRender flips true once the abc2svg module is loaded;
+  // the render effect then (re)lays out the score whenever `abc` changes — this
+  // is what makes live editing work. firstRender renders immediately; later
+  // edits are debounced.
+  let canRender = $state(false);
+  let firstRender = true;
+  const renderDebounceMs = 350;
 
   // Engine state — non-reactive, mutated imperatively
   let audioCtx: AudioContext | null = null;
   let mapTab: Record<string, unknown> = {};
-  let withRT = true;
-  let hasPan = true;
-  let hasLFO = true;
-  let hasFlt = true;
-  let hasVCF = true;
-  let instMap: number[] | null = null;
+  // Web Audio capability flags, set once during init from audioCtx feature detection.
+  const caps = { withRT: true, hasPan: true, hasLFO: true, hasFlt: true, hasVCF: true };
+  // Identity instrument map (this port has no per-voice instrument remapping).
+  const instMap = Array.from({ length: 256 }, (_, i) => i);
   let tabHaak: unknown = null;
   let cmpElm: HTMLDivElement | null = null;
-  let ready = false;
 
   const opt = {
     curmsk: 0,
@@ -96,11 +102,11 @@
       mLib.midiPan,
       mLib.midiInstr,
       mLib.midiUsedArr,
-      withRT,
-      hasPan,
-      hasLFO,
-      hasFlt,
-      hasVCF,
+      caps.withRT,
+      caps.hasPan,
+      caps.hasLFO,
+      caps.hasFlt,
+      caps.hasVCF,
       instMap,
       cmpElm,
       logerr
@@ -154,26 +160,49 @@
       abctxtTemp = abctxtTemp.replaceAll(nm1, nm2);
     }
     mLib.doModel(Abc, abctxtTemp, opt, 120, 0, mapTab, logerr);
-    instMap = Array.from({ length: 256 }, (_, i) => i);
     setSynVars();
     sLib.laadNoot();
     mLib.doLayout(Abc, abctxt, opt, null, 1, abcElm, logerr, addUnlockListener, getPlaying, playBack, dolayout);
   }
 
-  async function renderSong(abctxt: string) {
-    if (!abc2svg) {
-      const mod = await import('$lib/vendor/abc2svg/abc2svg-bundle.js');
-      const loaded: Abc2Svg = mod.default;
-      abc2svg = loaded;
-      Abc = loaded.Abc;
-      tabHaak = loaded.mhooks['strtab'];
-    }
-    dolayout(commonAbc + abctxt);
-    onLoad?.([...mLib.midiVol]);
-    loading = false;
+  // Lazy-load the ~290 kB abc2svg engine once. Render happens separately in the
+  // reactive effect below so edits can re-render without re-importing.
+  async function loadAbc2svg() {
+    if (abc2svg) return;
+    const mod = await import('$lib/vendor/abc2svg/abc2svg-bundle.js');
+    const loaded: Abc2Svg = mod.default;
+    abc2svg = loaded;
+    Abc = loaded.Abc;
+    tabHaak = loaded.mhooks['strtab'];
+  }
+
+  // Lay out (or re-lay out) the score for the current abc text. Stops any active
+  // playback first — markeer() indexes into ntsSeq, which dolayout rebuilds, so
+  // playing across a re-render would read a stale sequence. untrack so the
+  // reactive reads here (isPlaying via the engine, state writes) don't widen the
+  // render effect's dependencies.
+  function renderNow(text: string) {
+    untrack(() => {
+      try {
+        mLib.stop_markeer();
+        onPlayingChange?.(false);
+        dolayout(commonAbc + text);
+        onLoad?.(mLib.getVolumes());
+        resizeNotation();
+      } catch (e) {
+        onError?.(e instanceof Error ? e.message : String(e));
+      } finally {
+        loading = false; // clear the spinner even if the first render throws
+      }
+    });
   }
 
   function keyDown(e: KeyboardEvent) {
+    // Don't hijack keys (space = play, arrows = navigate) while the user is
+    // typing in a form field or editor — let them reach the input.
+    const t = e.target as HTMLElement | null;
+    if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'))
+      return;
     if (e.altKey || e.ctrlKey || e.shiftKey || e.key === 'Tab') return;
     switch (e.key) {
       case 'ArrowLeft':
@@ -203,105 +232,89 @@
     }
   }
 
-  // Setup runs once on mount via {@attach} on the host div. Wrapped in untrack
-  // so reads of reactive props (abc) don't subscribe — re-runs would tear down
-  // event listeners via the cleanup function.
-  function initEngine(node: HTMLDivElement) {
-    return untrack(() => {
-      abcElm = node;
-      if (ready) return;
+  // One-time engine setup, as an attachment. Rendering lives in scheduleRender,
+  // so this body reads no reactive state — the attachment runs once on mount and
+  // never re-runs, hence no untrack wrapper or re-entry guard. The returned
+  // function runs on unmount.
+  const initEngine: Attachment<HTMLDivElement> = (node) => {
+    abcElm = node;
+    mLib.addElms();
+    cmpElm = document.createElement('div');
 
-      mLib.addElms();
-      cmpElm = document.createElement('div');
+    const hasSmooth = CSS.supports('scroll-behavior', 'smooth');
+    if (!hasSmooth) opt.nosm = 1;
 
-      const hasSmooth = CSS.supports('scroll-behavior', 'smooth');
-      if (!hasSmooth) opt.nosm = 1;
+    const ac =
+      window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    audioCtx = ac ? new ac() : null;
 
-      const ac =
-        window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      audioCtx = ac ? new ac() : null;
-
-      const warnings: string[] = [];
-      if (!hasSmooth) warnings.push('* smooth scrolling');
-      if (!audioCtx) {
-        warnings.push('* the Web Audio API -> no sound');
-      } else {
-        if (!audioCtx.createStereoPanner) hasPan = false;
-        if (!audioCtx.createOscillator) hasLFO = false;
-        if (!audioCtx.createBiquadFilter) hasFlt = false;
-        if (!audioCtx.createConstantSource) hasVCF = false;
-        if (!hasPan) warnings.push('* the StereoPanner element');
-        if (withRT && !hasLFO) warnings.push('* the Oscillator element');
-        if (withRT && !hasFlt) warnings.push('* the BiquadFilter element');
-        if (withRT && !hasVCF) warnings.push('* the ConstantSource element');
-        if (!hasLFO || !hasFlt || !hasVCF) {
-          warnings.push('You are probably on iOS, which does not support the Web Audio API.');
-          warnings.push('Real time synthesis is switched off, falling back to MIDIjs');
-          withRT = false;
-        }
-      }
-
-      const resizeHandler = () => {
-        mLib.setScale();
-        resizeNotation();
-      };
-      window.addEventListener('resize', resizeHandler);
-
-      // Tempo events dispatched by the forked xmlplay_lib.js as the playhead crosses
-      // notes / users seek across the score.
-      const tempoHandler = (e: Event) => onBpmChange?.((e as CustomEvent<{ tmp: number }>).detail.tmp);
-      document.addEventListener('xmlplay-markeer', tempoHandler);
-
-      document.body.addEventListener('keydown', keyDown);
-
-      ready = true;
-
-      (async () => {
-        await renderSong(abc);
-        resizeNotation();
-        if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
-      })();
-
-      return () => {
-        window.removeEventListener('resize', resizeHandler);
-        document.removeEventListener('xmlplay-markeer', tempoHandler);
-        document.body.removeEventListener('keydown', keyDown);
-      };
-    });
-  }
-
-  // Sync volume changes from props into the engine. Defined as a named function
-  // and passed by reference to $effect so the autofixer's body-inspection
-  // heuristic doesn't flag the engine calls inside.
-  function syncVolumes() {
-    // Read every voice up front so each is registered as a dependency even on
-    // runs where we bail early below. Svelte only tracks reactive values read
-    // BEFORE an early return — read them after the `ready` guard (a plain,
-    // non-reactive var) and the effect would never re-subscribe, so later
-    // volume changes would be silently ignored.
-    const next = voices.map((v) => v);
-    if (!ready || !mLib.midiVol) return;
-    let changed = false;
-    for (let i = 0; i < next.length; i++) {
-      if (mLib.midiVol[i] !== next[i]) {
-        mLib.midiVol[i] = next[i];
-        changed = true;
+    const warnings: string[] = [];
+    if (!hasSmooth) warnings.push('* smooth scrolling');
+    if (!audioCtx) {
+      warnings.push('* the Web Audio API -> no sound');
+    } else {
+      if (!audioCtx.createStereoPanner) caps.hasPan = false;
+      if (!audioCtx.createOscillator) caps.hasLFO = false;
+      if (!audioCtx.createBiquadFilter) caps.hasFlt = false;
+      if (!audioCtx.createConstantSource) caps.hasVCF = false;
+      if (!caps.hasPan) warnings.push('* the StereoPanner element');
+      if (caps.withRT && !caps.hasLFO) warnings.push('* the Oscillator element');
+      if (caps.withRT && !caps.hasFlt) warnings.push('* the BiquadFilter element');
+      if (caps.withRT && !caps.hasVCF) warnings.push('* the ConstantSource element');
+      if (!caps.hasLFO || !caps.hasFlt || !caps.hasVCF) {
+        warnings.push('You are probably on iOS, which does not support the Web Audio API.');
+        warnings.push('Real time synthesis is switched off, falling back to MIDIjs');
+        caps.withRT = false;
       }
     }
-    if (changed) setSynVars();
+
+    const resizeHandler = () => {
+      mLib.setScale();
+      resizeNotation();
+    };
+    window.addEventListener('resize', resizeHandler);
+
+    // Tempo callback: the forked xmlplay_lib.js calls this as the playhead crosses
+    // notes / the user seeks across the score.
+    mLib.setOnTempo((tmp: number) => onBpmChange?.(tmp));
+
+    document.body.addEventListener('keydown', keyDown);
+
+    (async () => {
+      await loadAbc2svg();
+      canRender = true; // triggers the render effect's first (immediate) render
+      if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
+    })();
+
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+      mLib.setOnTempo(null);
+      document.body.removeEventListener('keydown', keyDown);
+    };
+  };
+
+  // Sync volume changes from props into the engine. setVolume writes into the
+  // stable midiVol array the synth reads live per note, so no setSynVars() is
+  // needed. By-reference form because the body calls setVolume() and the
+  // autofixer flags any call inside an inline $effect. `voices` is read in full
+  // each run, so every change is tracked.
+  function syncVolumes() {
+    for (let i = 0; i < voices.length; i++) {
+      mLib.setVolume(i, voices[i]);
+    }
   }
   $effect(syncVolumes);
 
-  // Drive engine play/stop from isPlaying. Tempo updates arrive via the
-  // 'xmlplay-markeer' CustomEvent dispatched from markeer() in the vendor fork.
+  // Drive engine play/stop from isPlaying.
   function syncPlayState() {
     // Read `isPlaying` BEFORE the early return so it's always tracked as a
-    // dependency. The guards below read non-reactive vendor state (`ready`,
-    // `ntsSeq`), so on the first run (before the song finishes rendering) we'd
-    // otherwise bail without ever reading `isPlaying` — and the effect would
-    // never re-run when the user hits play.
+    // dependency. The guard reads non-reactive vendor state (`ntsSeq`), so on
+    // the first run (before the song finishes rendering) we'd otherwise bail
+    // without ever reading `isPlaying` — and the effect would never re-run when
+    // the user hits play. ntsSeq is only populated after a render, which implies
+    // the engine (and audioCtx) is fully set up, so no separate ready flag.
     const playing = isPlaying;
-    if (!ready || !mLib.ntsSeq.length) return;
+    if (!mLib.ntsSeq.length) return;
     if (playing) {
       if (audioCtx?.state === 'suspended') audioCtx.resume();
       mLib.start_markeer(audioCtx);
@@ -310,6 +323,32 @@
     }
   }
   $effect(syncPlayState);
+
+  // Push speed changes into the engine; read live each playback tick in
+  // markeer(), so mid-song changes apply immediately. By-reference form: the
+  // body's only statement is the mLib.setTempo() call, and the autofixer flags
+  // any call placed directly inside an inline $effect arrow.
+  function syncSpeed() {
+    mLib.setTempo(speed);
+  }
+  $effect(syncSpeed);
+
+  // Re-render the score whenever `abc` changes (live editing). `abc` and
+  // `canRender` are both read up front so the effect tracks them. First render
+  // is immediate; subsequent edits are debounced, and the returned cleanup
+  // clears a pending timer when `abc` changes again or the component unmounts.
+  function scheduleRender() {
+    const text = abc;
+    if (!canRender) return;
+    if (firstRender) {
+      firstRender = false;
+      renderNow(text);
+      return;
+    }
+    const timer = setTimeout(() => renderNow(text), renderDebounceMs);
+    return () => clearTimeout(timer);
+  }
+  $effect(scheduleRender);
 </script>
 
 {#if loading}
@@ -335,8 +374,5 @@
     <span>Loading…</span>
   </div>
 {/if}
-
-<!-- Hidden input read by xmlplay engine for speed multiplier. -->
-<input type="hidden" id="tempo" value={speed} />
 
 <div class="size-full overflow-auto" {@attach initEngine}></div>

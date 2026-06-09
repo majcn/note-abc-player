@@ -31,16 +31,28 @@ var gScale = 1.0;
 var ntsPos = {};    // {abc_char_pos -> nSvg, x, y, w, h}
 var stfPos = [];    // [stfys for each svg]
 var stfHgt = [];    // hoogte van een balk
-var audioCtx, timer1, gAccTime, tmpElm, lastMarkeerTmp;
-
-function dispatchTempoChange (tmp) {
-    if (tmp === lastMarkeerTmp) return;
-    lastMarkeerTmp = tmp;
-    document.dispatchEvent (new CustomEvent ('xmlplay-markeer', { detail: { tmp } }));
-}
+var audioCtx, timer1, gAccTime;
 var rolElm;         // de stippellijn
 var metRects = 0;   // all notes marked with svg-rects
 var putMarkExt;
+
+var lastMarkeerTmp;
+var gSpeed = 1;
+// UI volume is 0..100; MIDI volume is 0..127. VOL_SCALE bridges them. setVolume
+// (UI -> MIDI) and getVolumes (MIDI -> UI) are inverses, so values round-trip:
+// an ABC default of midiVol=100 reads back as ~79 in the UI and plays at 100/127.
+const VOL_SCALE = 1.27;
+function setVolume (i, v) { midiVol[i] = v * VOL_SCALE }
+function getVolumes () { return midiVol.map (v => Math.round (v / VOL_SCALE)) }
+function setTempo (v) { gSpeed = v || 1 }   // guard 0/undefined: markeer divides by gSpeed
+
+var onTempo = null;     // host callback, set via setOnTempo
+function setOnTempo (fn) { onTempo = fn; }
+function dispatchTempoChange (tmp) {
+    if (tmp === lastMarkeerTmp) return;
+    lastMarkeerTmp = tmp;
+    onTempo?.(tmp);
+}
 
 function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) {
     var abc2svg;
@@ -640,7 +652,7 @@ function markeer () {
     var tfac = 60000 / 384;
     while (dt == 0) {
         var nt = ntsSeq [iSeq];             // de huidige noot
-        tf = tfac / (nt.tmp * tmpElm.value);    // abc tijd -> echte tijd in msec
+        tf = tfac / (nt.tmp * gSpeed);    // abc tijd -> echte tijd in msec
         if (iSeq == ntsSeq.length - 1) {    // laatste noot
             iSeq = -1;                      // want straks +1
             dt = nt.ns[0].dur + 1000;       // 1 sec extra voor herhaling
@@ -664,7 +676,6 @@ function markeer () {
 }
 
 function start_markeer (audioCtx_p, ntsel) {
-    tmpElm = document.getElementById ('tempo') || { value: 1 };
     audioCtx = audioCtx_p;
     gAccTime = audioCtx.currentTime * 1000; // starttijd in millisecondes
     lastMarkeerTmp = undefined;
@@ -807,6 +818,7 @@ function addElms () {
 }
 
 export { 
+    setVolume, getVolumes, setTempo, setOnTempo,
     doModel, stf2name, vce2stf, midiVol, midiPan, midiInstr, midiUsedArr,
     doLayout, mkNtsSeq, ntsSeq,
     start_markeer, stop_markeer, iSeq,
