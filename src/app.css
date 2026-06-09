@@ -1,37 +1,33 @@
-:root {
-  /* Primary action color — buttons, sliders, highlights */
-  --color-accent: #3b7ef8;
-  --color-accent-hover: #5a92ff;
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
 
-  /* Text hierarchy */
-  --color-text: #ffffff;
-  --color-text-secondary: rgba(190, 205, 230, 0.7); /* labels, captions */
-  --color-text-tertiary: rgba(190, 205, 230, 0.55); /* percentages, hints */
+@theme {
+  --color-panel-bg: rgba(14, 16, 26, 0.75);
+  --color-panel-border: rgba(255, 255, 255, 0.11);
+  --color-panel-text: #ffffff;
+  --color-panel-text-muted: rgba(190, 205, 230, 0.7);
+  --color-panel-text-dim: rgba(190, 205, 230, 0.55);
 
-  /* Panel / surface (floating bar, expanded panel) */
-  --color-surface: rgba(14, 16, 26, 0.75);
-  --color-surface-border: rgba(255, 255, 255, 0.11);
-  --surface-blur: blur(16px);
-  --surface-radius: 12px;
-  --surface-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --color-panel-accent: #3b7ef8;
+  --color-panel-accent-hover: #5a92ff;
 
-  /* Interactive controls (voice buttons, tempo bumpers) */
-  --color-control: rgba(255, 255, 255, 0.1);
-  --color-control-hover: rgba(255, 255, 255, 0.2);
-  --color-control-border: rgba(255, 255, 255, 0.13);
+  --color-panel-control-bg: rgba(255, 255, 255, 0.1);
+  --color-panel-control-bg-hover: rgba(255, 255, 255, 0.2);
+  --color-panel-control-border: rgba(255, 255, 255, 0.13);
 
-  /* Icon-only buttons (expand/collapse toggle) */
-  --color-icon: rgba(255, 255, 255, 0.45);
-  --color-icon-hover: rgba(255, 255, 255, 0.9);
+  --color-panel-icon: rgba(255, 255, 255, 0.45);
+  --color-panel-icon-hover: rgba(255, 255, 255, 0.9);
 
-  /* App background — used by Storybook "dark" background as well */
-  --color-bg: #1a1c2a;
-}
+  /* Error toast — red counterpart to the panel palette. */
+  --color-error-bg: rgba(40, 14, 14, 0.92);
+  --color-error-border: rgba(239, 68, 68, 0.35);
+  --color-error-text: #ffb3b3;
+  --color-error-accent: #fca5a5;
 
-body {
-  margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family:
+  --radius-panel: 12px;
+  --shadow-panel: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --blur-panel: 16px;
+
+  --default-font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
 }

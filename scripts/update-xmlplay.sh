@@ -79,36 +79,16 @@ fi
 echo "Found source directory: $SOURCE_DIR"
 echo ""
 
-# Ensure vendor directory exists
+# Refresh pristine upstream copies in $VENDOR_DIR. Only the two modules we
+# actually use (_lib and _syn) are vendored. The forked copies under
+# src/lib/xmlplay/ are kept up to date manually after reviewing the vendor diff.
 mkdir -p "$VENDOR_DIR"
-
-# Copy files from full_source to vendor/xmlplay (excluding xmlplay_emb.js)
-echo "Copying files to $VENDOR_DIR..."
-for file in "$SOURCE_DIR"/*; do
-  filename=$(basename "$file")
-  if [ "$filename" != "xmlplay_emb.js" ]; then
-    cp "$file" "$VENDOR_DIR/"
-  fi
+echo "Copying upstream files to $VENDOR_DIR..."
+for filename in xmlplay_lib.js xmlplay_syn.js; do
+  cp "$SOURCE_DIR/$filename" "$VENDOR_DIR/"
 done
-echo "✓ Copied files from full_source (excluding xmlplay_emb.js)"
-echo ""
-
-# Reapply local patches. Each patch is a small, manually-reviewable diff
-# against upstream — see scripts/patches/*.patch for what was changed and why.
-PATCH_DIR="$ROOT_DIR/scripts/patches"
-if [ -d "$PATCH_DIR" ]; then
-  echo "Reapplying patches from $PATCH_DIR..."
-  for patch_file in "$PATCH_DIR"/*.patch; do
-    [ -e "$patch_file" ] || continue
-    name=$(basename "$patch_file")
-    if patch -p1 -d "$VENDOR_DIR" < "$patch_file"; then
-      echo "✓ Applied $name"
-    else
-      echo "❌ Failed to apply $name — review manually and rebuild the patch"
-      exit 1
-    fi
-  done
-fi
+echo "✓ Copied xmlplay_lib.js, xmlplay_syn.js"
 
 echo ""
 echo "✓ Update complete! Updated to xmlplay version $VERSION"
+echo "  Next: diff $VENDOR_DIR against src/lib/xmlplay/ and port changes manually."

@@ -21,12 +21,30 @@
   }
 </script>
 
-<div class="voices">
+<!-- flex-1 = stretch to fill the row; gap-1 = 4px between pills -->
+<div class="flex flex-1 items-center gap-1">
   {#each voices as vol, i (i)}
     {@const muted = vol === 0}
+    <!--
+      Pill button per voice. Same look as bump buttons in TempoCompact.
+        flex-1                       grow equally so the pills fill the row
+        rounded-full                 pill shape
+        border + bg + hover          control surface look
+        px-[9px] py-[3px]            tight custom padding (Tailwind's px-2 py-1 would be too big)
+        text-xs                      12px font
+        whitespace-nowrap            keep "♩ 1" on one line so the pill can't grow into a circle
+        select-none                  prevent dragging-to-select the "♩ 1" text
+        focus-visible:outline-*      keyboard focus ring
+      When muted:
+        line-through                 strike through the label
+        opacity-35                   fade to 35% to show "off" state
+    -->
     <button
       type="button"
-      class={['voice-button', { muted }]}
+      class={[
+        'flex-1 cursor-pointer rounded-full border border-panel-control-border bg-panel-control-bg px-[9px] py-[3px] text-xs whitespace-nowrap text-panel-text transition select-none hover:bg-panel-control-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent',
+        muted && 'line-through opacity-35'
+      ]}
       aria-label={`Voice ${i + 1}, ${muted ? 'muted' : 'audible'}`}
       aria-pressed={muted}
       onclick={() => handleToggle(i, vol)}
@@ -35,38 +53,3 @@
     </button>
   {/each}
 </div>
-
-<style>
-  .voices {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-
-  .voice-button {
-    appearance: none;
-    -webkit-appearance: none;
-    padding: 3px 9px;
-    border-radius: 20px;
-    background: var(--color-control);
-    color: var(--color-text);
-    font-size: 12px;
-    cursor: pointer;
-    user-select: none;
-    border: 1px solid var(--color-control-border);
-    transition:
-      background 0.15s,
-      opacity 0.15s;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .voice-button:hover {
-    background: var(--color-control-hover);
-  }
-
-  .voice-button.muted {
-    opacity: 0.35;
-    text-decoration: line-through;
-  }
-</style>

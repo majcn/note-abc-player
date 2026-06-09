@@ -1,56 +1,12 @@
 <script lang="ts">
-  import { ControlPanel } from '$lib/components/ControlPanel';
-  import { MusicSheet } from '$lib/components/MusicSheet';
-  import ErrorToast from '$lib/components/ErrorToast.svelte';
-
-  const song = 'do-re-mi';
-
-  let voices = $state<number[]>([]);
-  let speed = $state(1);
-  let bpm = $state(120);
-  let isPlaying = $state(false);
-  let error = $state<string | null>(null);
+  import { resolve } from '$app/paths';
 </script>
 
-<MusicSheet
-  {song}
-  {voices}
-  {speed}
-  {isPlaying}
-  onLoad={(initial) => (voices = initial)}
-  onBpmChange={(v) => (bpm = v)}
-  onPlayingChange={(v) => (isPlaying = v)}
-  onError={(msg) => (error = msg)}
-/>
-
-<div class="panel-slot">
-  <ControlPanel
-    {voices}
-    {isPlaying}
-    {bpm}
-    {speed}
-    onVolumeChange={(i, v) => (voices[i] = v)}
-    onSpeedChange={(v) => (speed = v)}
-    onRequestPlay={(v) => (isPlaying = v)}
-  />
+<div class="p-6">
+  <h1 class="mb-2 text-3xl">No song selected</h1>
+  <p class="text-neutral-500">
+    Open a song by visiting <code class="rounded bg-neutral-100 px-1.5 py-0.5 text-[0.9em]">/&lt;song-name&gt;</code>,
+    e.g.
+    <a href={resolve('/[name]', { name: 'do-re-mi' })}>/do-re-mi</a>.
+  </p>
 </div>
-
-<ErrorToast bind:error />
-
-<style>
-  .panel-slot {
-    position: fixed;
-    top: 16px;
-    right: 16px;
-    z-index: 100;
-  }
-
-  @media (max-width: 768px) {
-    .panel-slot {
-      position: sticky;
-      top: 0;
-      left: 0;
-      right: 0;
-    }
-  }
-</style>

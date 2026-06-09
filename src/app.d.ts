@@ -14,6 +14,14 @@ declare global {
     // interface PageData {}
     // interface PageState {}
   }
+
+  namespace Cloudflare {
+    interface Env {
+      DROPBOX_REFRESH_TOKEN: string;
+      DROPBOX_ACCESS_KEY: string;
+      DROPBOX_SECRET_KEY: string;
+    }
+  }
 }
 
 export {};

@@ -42,116 +42,81 @@
     const delta = direction === 'up' ? speedStep : -speedStep;
     onSpeedChange(clampSpeed(speed + delta));
   }
+
+  function handleBpmCommit(newBpm: number) {
+    if (bpm <= 0) return;
+    onSpeedChange(clampSpeed(newBpm / bpm));
+  }
 </script>
 
-<div class="btns">
-  <div class={['mbar', { open }]}>
+<!--
+  Outer wrapper holds ALL the visual chrome (border, background, rounded corners, shadow).
+  Header + ExpandedPanel inside are plain content. This is what avoids the expand glitch:
+  the wrapper's corners never change, only its height grows.
+    inline-block        shrink to fit content width on desktop (not full row width)
+    overflow-hidden     clip expanding content so it stays inside the rounded corners
+    rounded-panel       custom 12px radius token (see app.css --radius-panel)
+    border/bg/shadow/   the "glass card" look
+      backdrop-blur
+    max-md:w-full       on mobile (<768px) stretch full width
+    max-md:rounded-none drop corners on mobile (looks better edge-to-edge)
+-->
+<div
+  class="inline-block overflow-hidden rounded-panel border border-panel-border bg-panel-bg shadow-panel backdrop-blur-panel max-md:w-full max-md:rounded-none"
+>
+  <!--
+    Header row: play / voices / tempo / expand button.
+      flex items-center      lay children horizontally, vertically centered
+      cursor-default         keep arrow cursor over gaps (cursor is inherited; without
+                             this, the wrapper's default would let text-cursor leak in)
+      gap-2                  8px between children
+      px-3 py-2              12px horizontal, 8px vertical padding
+      max-md:flex-wrap       on mobile let buttons wrap to a second line if needed
+      max-md:gap-1.5         tighter gap when wrapping
+  -->
+  <div class="flex cursor-default items-center gap-2 px-3 py-2 max-md:flex-wrap max-md:gap-1.5">
     <PlayButton {isPlaying} {onRequestPlay} />
     <VoiceButtons {voices} {onVolumeChange} />
-    <TempoCompact
-      {playbackBpm}
-      canDecrement={speed > speedMin}
-      canIncrement={speed < speedMax}
-      onSpeedStep={handleSpeedStep}
-    />
-    <button
-      type="button"
-      class={['toggle-btn', { open }]}
-      aria-label={open ? 'Collapse' : 'Expand'}
-      aria-expanded={open}
-      onclick={() => (open = !open)}
-    ></button>
+    <!--
+      Right-side group: tempo + expand chevron.
+        ml-auto     eats the remaining space, pushing this group to the far right
+        flex/gap-2  keep tempo and chevron together (and on the same line when wrapping)
+    -->
+    <div class="ml-auto flex items-center gap-2">
+      <TempoCompact
+        {playbackBpm}
+        canDecrement={speed > speedMin}
+        canIncrement={speed < speedMax}
+        onSpeedStep={handleSpeedStep}
+        onBpmCommit={handleBpmCommit}
+      />
+      <!--
+        Expand/collapse chevron (inline SVG, recolored via `text-*` + fill="currentColor").
+          flex items-center justify-center   center the svg inside
+          size-[22px]              22x22px box (max-md:size-11 -> 44x44 tap target on mobile)
+          shrink-0                 never compress when row gets tight
+          text-panel-icon          icon color, brighter on hover
+          transition               smooth color/transform changes (default 150ms in v4)
+          focus-visible:outline-*  keyboard-only focus ring (ignored for mouse clicks)
+          rotate-180 (when open)   flip chevron upside down when expanded
+        The svg is 22px (26px on mobile) to match the old mask-size.
+      -->
+      <button
+        type="button"
+        class={[
+          'flex size-[22px] shrink-0 cursor-pointer items-center justify-center text-panel-icon transition hover:text-panel-icon-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent max-md:size-11',
+          open && 'rotate-180'
+        ]}
+        aria-label={open ? 'Collapse' : 'Expand'}
+        aria-expanded={open}
+        onclick={() => (open = !open)}
+      >
+        <!-- @material-design-icons/svg/filled/expand_more.svg, inlined -->
+        <svg viewBox="0 0 24 24" class="size-[22px] max-md:size-[26px]" fill="currentColor" aria-hidden="true">
+          <path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z" />
+        </svg>
+      </button>
+    </div>
   </div>
-  {#if open}
-    <ExpandedPanel {voices} {speed} {speedMin} {speedMax} {onSpeedChange} {onVolumeChange} />
-  {/if}
+  <ExpandedPanel {open} {voices} {speed} {speedMin} {speedMax} {onSpeedChange} {onVolumeChange} />
 </div>
-
-<style>
-  .btns {
-    display: inline-flex;
-    flex-direction: column;
-  }
-
-  .mbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--color-surface);
-    backdrop-filter: var(--surface-blur);
-    -webkit-backdrop-filter: var(--surface-blur);
-    border-radius: var(--surface-radius);
-    border: 1px solid var(--color-surface-border);
-    box-shadow: var(--surface-shadow);
-    color: var(--color-text);
-    font-size: 13px;
-    transition:
-      border-radius 0.15s,
-      border-bottom-color 0.15s,
-      box-shadow 0.15s;
-    cursor: default;
-  }
-
-  .mbar.open {
-    border-radius: var(--surface-radius) var(--surface-radius) 0 0;
-    border-bottom-color: rgba(255, 255, 255, 0.06);
-    box-shadow: none;
-  }
-
-  .toggle-btn {
-    appearance: none;
-    -webkit-appearance: none;
-    border: none;
-    padding: 0;
-    margin-left: auto;
-    width: 22px;
-    height: 22px;
-    flex-shrink: 0;
-    cursor: pointer;
-    background-color: var(--color-icon);
-    mask-image: url('@material-design-icons/svg/filled/expand_more.svg');
-    -webkit-mask-image: url('@material-design-icons/svg/filled/expand_more.svg');
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-position: center;
-    -webkit-mask-position: center;
-    mask-size: 22px;
-    -webkit-mask-size: 22px;
-    transition:
-      background-color 0.15s,
-      transform 0.2s;
-  }
-
-  .toggle-btn:hover {
-    background-color: var(--color-icon-hover);
-  }
-
-  .toggle-btn.open {
-    transform: rotate(180deg);
-  }
-
-  @media (max-width: 768px) {
-    .btns {
-      display: block;
-      width: 100%;
-    }
-
-    .mbar {
-      border-radius: 0;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .mbar.open {
-      border-radius: 0;
-    }
-
-    .toggle-btn {
-      width: 44px;
-      height: 44px;
-      mask-size: 26px;
-      -webkit-mask-size: 26px;
-    }
-  }
-</style>

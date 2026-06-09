@@ -7,74 +7,33 @@
   let { isPlaying, onRequestPlay }: Props = $props();
 </script>
 
+<!--
+  Round accent-colored button with a white play/stop glyph (inline SVG).
+    flex items-center justify-center   center the svg inside
+    size-[34px] / max-md:size-11       34x34 desktop, 44x44 tap target on mobile
+    shrink-0                           never compress in the flex row
+    rounded-full bg-panel-accent       green circle, brighter on hover
+    text-white                         icon color (svg paths use fill="currentColor")
+    motion-safe:hover:scale-105        1.05x pop on hover (skipped for reduced-motion)
+    focus-visible:outline-white        white ring on keyboard focus (matches dark accent)
+  The svg itself is 22px (26px on mobile) to match the old mask-size.
+-->
 <button
   type="button"
-  class={['play', isPlaying ? 'icon-stop' : 'icon-play']}
+  class="flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-accent text-white transition hover:bg-panel-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-safe:hover:scale-105 max-md:size-11"
   aria-label={isPlaying ? 'Stop' : 'Play'}
   aria-pressed={isPlaying}
   onclick={() => onRequestPlay(!isPlaying)}
-></button>
-
-<style>
-  .play {
-    appearance: none;
-    -webkit-appearance: none;
-    border: none;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--color-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    cursor: pointer;
-    transition:
-      background 0.15s,
-      transform 0.1s;
-    flex-shrink: 0;
-  }
-
-  .play:hover {
-    background: var(--color-accent-hover);
-    transform: scale(1.06);
-  }
-
-  .play::before {
-    content: '';
-    display: block;
-    width: 22px;
-    height: 22px;
-    background-color: white;
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-position: center;
-    -webkit-mask-position: center;
-    mask-size: 22px;
-    -webkit-mask-size: 22px;
-  }
-
-  .play.icon-play::before {
-    mask-image: url('@material-design-icons/svg/filled/play_arrow.svg');
-    -webkit-mask-image: url('@material-design-icons/svg/filled/play_arrow.svg');
-  }
-
-  .play.icon-stop::before {
-    mask-image: url('@material-design-icons/svg/filled/stop.svg');
-    -webkit-mask-image: url('@material-design-icons/svg/filled/stop.svg');
-  }
-
-  @media (max-width: 768px) {
-    .play {
-      width: 44px;
-      height: 44px;
-    }
-
-    .play::before {
-      width: 26px;
-      height: 26px;
-      mask-size: 26px;
-      -webkit-mask-size: 26px;
-    }
-  }
-</style>
+>
+  {#if isPlaying}
+    <!-- @material-design-icons/svg/filled/stop.svg, inlined -->
+    <svg viewBox="0 0 24 24" class="size-[22px] max-md:size-[26px]" fill="currentColor" aria-hidden="true">
+      <path d="M6 6h12v12H6z" />
+    </svg>
+  {:else}
+    <!-- @material-design-icons/svg/filled/play_arrow.svg, inlined -->
+    <svg viewBox="0 0 24 24" class="size-[22px] max-md:size-[26px]" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  {/if}
+</button>
