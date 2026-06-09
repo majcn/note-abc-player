@@ -1,11 +1,27 @@
 <script lang="ts">
   import { ControlPanel } from '$lib/components/ControlPanel';
+  import { MusicSheet } from '$lib/components/MusicSheet';
+  import ErrorToast from '$lib/components/ErrorToast.svelte';
 
-  let voices = $state([100, 80, 60, 40]);
+  const song = 'do-re-mi';
+
+  let voices = $state<number[]>([]);
   let speed = $state(1);
+  let bpm = $state(120);
   let isPlaying = $state(false);
-  const bpm = 120;
+  let error = $state<string | null>(null);
 </script>
+
+<MusicSheet
+  {song}
+  {voices}
+  {speed}
+  {isPlaying}
+  onLoad={(initial) => (voices = initial)}
+  onBpmChange={(v) => (bpm = v)}
+  onPlayingChange={(v) => (isPlaying = v)}
+  onError={(msg) => (error = msg)}
+/>
 
 <div class="panel-slot">
   <ControlPanel
@@ -19,10 +35,7 @@
   />
 </div>
 
-<main>
-  <h1>note-abc-player</h1>
-  <p>Score / sheet renders here.</p>
-</main>
+<ErrorToast bind:error />
 
 <style>
   .panel-slot {
@@ -30,12 +43,6 @@
     top: 16px;
     right: 16px;
     z-index: 100;
-  }
-
-  main {
-    padding: 24px;
-    max-width: 960px;
-    margin: 0 auto;
   }
 
   @media (max-width: 768px) {

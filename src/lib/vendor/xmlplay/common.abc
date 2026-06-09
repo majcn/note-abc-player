@@ -1,0 +1,5 @@
+%%measurenb 0
+%%beginsvg
+<style>.red {color:red;fill:red;}</style>
+%%endsvg
+%%gchordfont sans-serifBoldItalic 16 class=red
