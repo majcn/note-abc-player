@@ -17,7 +17,11 @@
 
 <button
   type="button"
-  class={['storybook-button', `storybook-button--${size}`, primary ? 'storybook-button--primary' : 'storybook-button--secondary'].join(' ')}
+  class={[
+    'storybook-button',
+    `storybook-button--${size}`,
+    primary ? 'storybook-button--primary' : 'storybook-button--secondary'
+  ].join(' ')}
   style={backgroundColor ? `background-color: ${backgroundColor}` : ''}
   {onclick}
 >
