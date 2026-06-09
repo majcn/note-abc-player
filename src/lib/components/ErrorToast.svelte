@@ -1,13 +1,18 @@
 <script lang="ts">
-  let { error = $bindable<string | null>(null) }: { error: string | null } = $props();
+  // Self-contained: the toast owns the currently displayed error. Callers push
+  // errors via the exported show(); the ✕ button clears it. null = hidden.
+  let error = $state<string | null>(null);
 
-  function handleAlert(msg: unknown) {
+  /** Display an error message (string-ified; null/undefined shows an empty toast). */
+  export function show(msg: unknown) {
     error = msg == null ? '' : String(msg);
   }
 
+  // The vendor engine reports some failures via window.alert(); route those into
+  // the toast while mounted, restoring the original handler on teardown.
   $effect(() => {
     const previous = window.alert;
-    window.alert = handleAlert;
+    window.alert = show;
     return () => {
       window.alert = previous;
     };

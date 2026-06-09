@@ -14,7 +14,16 @@
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
   import { abc } from '$lib/codemirror/abc';
 
-  let { value = $bindable(''), class: className = '' }: { value?: string; class?: string } = $props();
+  // `value` is the initial document only (read once at mount); edits flow out via
+  // onChange. No two-way binding — the editor owns its text after mount.
+  type Props = {
+    value?: string;
+    class?: string;
+    onChange?: (value: string) => void;
+    onCursor?: (offset: number) => void;
+  };
+
+  let { value = '', class: className = '', onChange, onCursor }: Props = $props();
 
   let view: EditorView | undefined;
 
@@ -73,9 +82,11 @@
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           abc(),
           theme,
-          // Push edits back out to the bound `value`.
+          // Report edits and cursor moves so the parent can re-render the sheet
+          // and highlight the matching note.
           EditorView.updateListener.of((u) => {
-            if (u.docChanged) value = u.state.doc.toString();
+            if (u.docChanged) onChange?.(u.state.doc.toString());
+            if (u.selectionSet || u.docChanged) onCursor?.(u.state.selection.main.head);
           })
         ]
       })
@@ -83,6 +94,15 @@
 
     return () => view?.destroy();
   };
+
+  // Move the cursor to a source offset, scroll it into view, and focus the
+  // editor. Called by the parent when a note in the rendered sheet is clicked.
+  export function goToOffset(pos: number) {
+    if (!view || !Number.isFinite(pos)) return;
+    const anchor = Math.max(0, Math.min(pos, view.state.doc.length));
+    view.dispatch({ selection: { anchor }, scrollIntoView: true });
+    view.focus();
+  }
 </script>
 
 <div class={className} {@attach initEditor}></div>

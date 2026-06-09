@@ -1,7 +1,8 @@
 <script lang="ts">
+  import type { PageProps } from './$types';
   import SongView from './SongView.svelte';
 
-  let { data } = $props();
+  let { data }: PageProps = $props();
 </script>
 
 <!--

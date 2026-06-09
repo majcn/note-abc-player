@@ -54,6 +54,9 @@ function dispatchTempoChange (tmp) {
     onTempo?.(tmp);
 }
 
+var onNoteClick = null; // host callback, set via setOnNoteClick
+function setOnNoteClick (fn) { onNoteClick = fn; }   // gets the clicked note's abc source offset (istart)
+
 function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) {
     var abc2svg;
     var errtxt = '';
@@ -454,6 +457,7 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
                     i += 1
                 }
                 dispatchTempoChange (ntsSeq [iSeq]?.tmp ?? 120);
+                onNoteClick?.(ntsSeq [iSeq]?.ix);   // report the clicked note's abc source offset
                 break;
             }
         }
@@ -523,7 +527,7 @@ function mkNtsSeq () {
         if (volta) continue;
         if (n.bt) { barTimes [n.t] = 1; continue; } // maattijden zonder herhalingsoffset
         var ntpos = metRects ? n.ix : ntsPos [n.ix]
-        ntsSeq.push ({ t: n.t + offset, xy: ntpos, ns: n.ns, vce: n.v, inv: n.inv, tmp: n.tmp });
+        ntsSeq.push ({ t: n.t + offset, xy: ntpos, ix: n.ix, ns: n.ns, vce: n.v, inv: n.inv, tmp: n.tmp });
     }
     iSeq = 0;
     for (; iSeq < ntsSeq.length; ++iSeq) {  // zet iSeq zo richt mogelijk bij laatste cursor positie
@@ -612,6 +616,23 @@ function plaatsLoper (doeltijd) {
         }
         if (nt.xy) lastnote = nt;   // onthoud laatste zichtbare noot voor het scrollen
     }
+}
+
+// Move the cursor/marker to the note nearest a given abc source offset (the
+// inverse of getNote). Picks the note whose source position is the closest at or
+// before `offset`, then positions + scrolls to it via plaatsLoper.
+function markBySourceOffset (offset) {
+    if (!ntsSeq.length) return;
+    var best = -1, bestIx = -1;
+    for (var i = 0; i < ntsSeq.length; ++i) {
+        var ix = ntsSeq [i].ix;
+        if (ix == null) continue;
+        if (ix <= offset && ix > bestIx) { bestIx = ix; best = i; }  // strict > keeps first of a repeated note
+    }
+    if (best < 0) best = 0;             // offset before the first note
+    isvgPrev.fill (-1);                 // force a scroll
+    plaatsLoper (ntsSeq [best].t);      // sets iSeq, marks and scrolls
+    dispatchTempoChange (ntsSeq [best]?.tmp ?? 120);
 }
 
 function naarMaat (inc) {
@@ -818,10 +839,10 @@ function addElms () {
 }
 
 export { 
-    setVolume, getVolumes, setTempo, setOnTempo,
+    setVolume, getVolumes, setTempo, setOnTempo, setOnNoteClick,
     doModel, stf2name, vce2stf, midiVol, midiPan, midiInstr, midiUsedArr,
     doLayout, mkNtsSeq, ntsSeq,
     start_markeer, stop_markeer, iSeq,
-    putMarkLoc, naarMaat, regelOmhoog, setScale, addElms,
+    putMarkLoc, naarMaat, regelOmhoog, setScale, addElms, markBySourceOffset,
     mapPerc, perc2map
 }

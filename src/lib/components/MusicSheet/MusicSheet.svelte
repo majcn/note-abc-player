@@ -25,9 +25,12 @@
     onBpmChange?: (bpm: number) => void;
     onPlayingChange?: (playing: boolean) => void;
     onError?: (message: string) => void;
+    // Fired when a note in the rendered sheet is clicked, with its character
+    // offset into `abc` (already adjusted for the prepended common header).
+    onNoteClick?: (offset: number) => void;
   };
 
-  let { abc, voices, speed, isPlaying, onLoad, onBpmChange, onPlayingChange, onError }: Props = $props();
+  let { abc, voices, speed, isPlaying, onLoad, onBpmChange, onPlayingChange, onError, onNoteClick }: Props = $props();
 
   // abcElm: engine host DOM element. Set by the {@attach initEngine} on mount;
   // not reactive (the engine mutates it imperatively).
@@ -197,6 +200,12 @@
     });
   }
 
+  // Highlight/scroll to the note matching an editor cursor offset. The offset is
+  // into `abc`; the engine indexes into `commonAbc + abc`, so add the header length.
+  export function highlightSource(offset: number) {
+    mLib.markBySourceOffset(offset + commonAbc.length);
+  }
+
   function keyDown(e: KeyboardEvent) {
     // Don't hijack keys (space = play, arrows = navigate) while the user is
     // typing in a form field or editor — let them reach the input.
@@ -278,6 +287,14 @@
     // notes / the user seeks across the score.
     mLib.setOnTempo((tmp: number) => onBpmChange?.(tmp));
 
+    // Note-click callback: offsets are into `commonAbc + abc`, so subtract the
+    // header length to map back into `abc`. Clicks inside the header map to a
+    // negative offset and are ignored.
+    mLib.setOnNoteClick((offset: number) => {
+      const inAbc = offset - commonAbc.length;
+      if (inAbc >= 0) onNoteClick?.(inAbc);
+    });
+
     document.body.addEventListener('keydown', keyDown);
 
     (async () => {
@@ -289,6 +306,7 @@
     return () => {
       window.removeEventListener('resize', resizeHandler);
       mLib.setOnTempo(null);
+      mLib.setOnNoteClick(null);
       document.body.removeEventListener('keydown', keyDown);
     };
   };
