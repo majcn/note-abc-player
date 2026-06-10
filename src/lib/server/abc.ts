@@ -13,10 +13,11 @@ export async function loadSongPage({
 }: {
   params: { name: string };
   platform: Readonly<App.Platform> | undefined;
-}): Promise<{ name: string; abc: string }> {
+}): Promise<{ name: string; title: string; abc: string }> {
   const name = params.name;
   const abc = await loadAbc(name, platform?.env);
-  return { name, abc };
+  const title = abc.match(/^T:(.+)$/m)?.[1]?.trim() ?? name;
+  return { name, title, abc };
 }
 
 export async function loadAbc(name: string, env: App.Platform['env'] | undefined): Promise<string> {

@@ -8,6 +8,8 @@
   let toast = $state<{ show: (msg: unknown) => void }>();
 </script>
 
+<svelte:head><title>{data.title} (Print mode)</title></svelte:head>
+
 <!--
   Print-to-PDF view. The score is laid out into an on-screen A4 "paper" so what
   you see matches what prints; the browser's own print dialog ("Save as PDF")
