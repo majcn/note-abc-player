@@ -63,11 +63,11 @@
   $effect(() => {
     const left = editing ? editorWidth + DIVIDER_PX : 0;
     document.documentElement.style.setProperty('--sheet-left', `${left}px`);
+    // documentElement outlives this component, so drop the var when leaving the
+    // edit route — a stale value would clamp the read-only player's scroll line.
+    return () => document.documentElement.style.removeProperty('--sheet-left');
   });
-  // documentElement outlives this component, so drop the var when leaving the
-  // edit route — a stale value would clamp the read-only player's scroll line.
   onDestroy(() => {
-    document.documentElement.style.removeProperty('--sheet-left');
     endDrag?.();
   });
 
