@@ -5,6 +5,25 @@ import { error } from '@sveltejs/kit';
 // to a safe charset to prevent path traversal (e.g. `../`, encoded slashes).
 const VALID_NAME = /^[a-zA-Z0-9_-]+$/;
 
+const ABC_ACCENTS: Record<string, Record<string, string>> = {
+  '"':  { A:'Ä', E:'Ë', I:'Ï', O:'Ö', U:'Ü', a:'ä', e:'ë', i:'ï', o:'ö', u:'ü', y:'ÿ' },
+  "'":  { A:'Á', E:'É', I:'Í', O:'Ó', U:'Ú', Y:'Ý', a:'á', e:'é', i:'í', o:'ó', u:'ú', y:'ý' },
+  '`':  { A:'À', E:'È', I:'Ì', O:'Ò', U:'Ù', a:'à', e:'è', i:'ì', o:'ò', u:'ù' },
+  '^':  { A:'Â', E:'Ê', I:'Î', O:'Ô', U:'Û', a:'â', e:'ê', i:'î', o:'ô', u:'û' },
+  '~':  { A:'Ã', N:'Ñ', O:'Õ', a:'ã', n:'ñ', o:'õ' },
+  ',':  { C:'Ç', c:'ç' },
+};
+const ABC_NAMED: Record<string, string> = {
+  ss:'ß', ae:'æ', AE:'Æ', oe:'œ', OE:'Œ', aa:'å', AA:'Å', o:'ø', O:'Ø',
+};
+
+function decodeAbcText(text: string): string {
+  return text
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/\\(ss|ae|AE|oe|OE|aa|AA|[oO])/g, (_, name) => ABC_NAMED[name] ?? _)
+    .replace(/\\([`'"^~,])([A-Za-z])/g, (_, mark, ch) => ABC_ACCENTS[mark]?.[ch] ?? ch);
+}
+
 // Shared `load` for the song pages (/[name], /[name]/edit, /[name]/pdf), which
 // all need exactly the same data: the song name and its ABC source.
 export async function loadSongPage({
@@ -16,7 +35,7 @@ export async function loadSongPage({
 }): Promise<{ name: string; title: string; abc: string }> {
   const name = params.name;
   const abc = await loadAbc(name, platform?.env);
-  const title = abc.match(/^T:(.+)$/m)?.[1]?.trim() ?? name;
+  const title = decodeAbcText(abc.match(/^T:(.+)$/m)?.[1]?.trim() ?? name);
   return { name, title, abc };
 }
 
