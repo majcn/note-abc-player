@@ -27,7 +27,7 @@
 </script>
 
 <!-- Rendered music sheet. -->
-<div class="relative min-w-0 flex-1 overflow-hidden">
+<div class="relative min-w-0 flex-1 overflow-hidden max-md:pb-14">
   <MusicSheet
     bind:this={sheet}
     {abc}
@@ -42,7 +42,7 @@
   />
 </div>
 
-<div class="fixed top-4 right-4 z-100 max-md:sticky max-md:inset-x-0 max-md:top-0">
+<div class="fixed top-4 right-4 z-100 max-md:inset-x-0 max-md:top-auto max-md:right-0 max-md:bottom-0">
   <ControlPanel
     {voices}
     {isPlaying}
