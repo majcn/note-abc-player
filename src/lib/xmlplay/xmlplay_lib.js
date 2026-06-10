@@ -820,6 +820,10 @@ function schuifLijn (evt) {
 }
 
 function addElms () {
+    // Components call this on every mount (each song navigation); the elements
+    // are appended to <head>/<body> and survive client-side routing, so bail if
+    // they already exist instead of stacking duplicates.
+    if (document.getElementById ('rollijn')) return;
     var stijl = document.createElement ('style')
     var x = '#rollijn  { position:fixed; height:30px; width:100%; z-index:1; '
     x += 'top: 30%; border-bottom: thin dashed black; touch-action: none; }\n'

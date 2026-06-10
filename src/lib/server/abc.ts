@@ -5,6 +5,20 @@ import { error } from '@sveltejs/kit';
 // to a safe charset to prevent path traversal (e.g. `../`, encoded slashes).
 const VALID_NAME = /^[a-zA-Z0-9_-]+$/;
 
+// Shared `load` for the song pages (/[name], /[name]/edit, /[name]/pdf), which
+// all need exactly the same data: the song name and its ABC source.
+export async function loadSongPage({
+  params,
+  platform
+}: {
+  params: { name: string };
+  platform: Readonly<App.Platform> | undefined;
+}): Promise<{ name: string; abc: string }> {
+  const name = params.name;
+  const abc = await loadAbc(name, platform?.env);
+  return { name, abc };
+}
+
 export async function loadAbc(name: string, env: App.Platform['env'] | undefined): Promise<string> {
   if (!VALID_NAME.test(name)) error(400, 'invalid song name');
   const abc = dev ? await readFromDummy(name) : await fetchFromDropbox(name, env!);

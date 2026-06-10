@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import SongPlayer from '$lib/components/SongPlayer.svelte';
   // CodeEditor (and CodeMirror) is imported statically: this component is only
   // reached via the edit route, so route-level code-splitting already keeps it
@@ -64,9 +64,19 @@
     const left = editing ? editorWidth + DIVIDER_PX : 0;
     document.documentElement.style.setProperty('--sheet-left', `${left}px`);
   });
+  // documentElement outlives this component, so drop the var when leaving the
+  // edit route — a stale value would clamp the read-only player's scroll line.
+  onDestroy(() => {
+    document.documentElement.style.removeProperty('--sheet-left');
+    endDrag?.();
+  });
 
   // Drag the divider. Track on the window so the cursor can leave the thin
-  // handle mid-drag without dropping it.
+  // handle mid-drag without dropping it. endDrag detaches the window listeners
+  // and body styles; kept outside startResize so onDestroy can also run it if
+  // the component unmounts mid-drag (e.g. navigation while dragging).
+  let endDrag: (() => void) | null = null;
+
   function startResize(e: PointerEvent) {
     e.preventDefault();
     const startX = e.clientX;
@@ -76,10 +86,7 @@
       editorWidth = clampWidth(startWidth + (ev.clientX - startX));
     };
     const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      document.body.style.removeProperty('cursor');
-      document.body.style.removeProperty('user-select');
+      endDrag?.();
       localStorage.setItem(WIDTH_KEY, String(editorWidth));
       relayoutSheet();
     };
@@ -88,6 +95,13 @@
     document.body.style.userSelect = 'none';
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    endDrag = () => {
+      endDrag = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+    };
   }
 
   async function toggleEditor() {

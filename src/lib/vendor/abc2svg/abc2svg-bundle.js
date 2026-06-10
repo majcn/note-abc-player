@@ -23872,11 +23872,6 @@ Abc.prototype.y_set = y_set
 // compatibility
 var Abc = abc2svg.Abc
 
-// nodejs
-if (typeof module == 'object' && typeof exports == 'object') {
-	exports.abc2svg = abc2svg;
-	exports.Abc = Abc
-}
 // abc2svg - modules.js - module handling
 //
 // Copyright (C) 2018-2026 Jean-Francois Moine

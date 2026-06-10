@@ -4,15 +4,9 @@
   import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
   import * as sLib from '$lib/xmlplay/xmlplay_syn.js';
   import commonAbc from '$lib/xmlplay/common.abc?raw';
+  import { loadAbc2svg, createLogerr, preprocessAbc, type Abc2Svg } from '$lib/xmlplay/engine';
+  import { LoadingSpinner } from '$lib/components/LoadingSpinner';
 
-  // Minimal shape we touch on the vendor module.
-  type Abc2Svg = {
-    Abc: unknown;
-    mhooks: Record<string, unknown>;
-  };
-
-  // abc2svg is ~290 kB — dynamic import puts it in its own hashed chunk
-  // (long-cache via _app/immutable/), loaded on first song.
   let abc2svg: Abc2Svg | null = null;
   let Abc: unknown = null;
 
@@ -52,7 +46,6 @@
   const caps = { withRT: true, hasPan: true, hasLFO: true, hasFlt: true, hasVCF: true };
   // Identity instrument map (this port has no per-voice instrument remapping).
   const instMap = Array.from({ length: 256 }, (_, i) => i);
-  let tabHaak: unknown = null;
   let cmpElm: HTMLDivElement | null = null;
 
   const opt = {
@@ -70,32 +63,7 @@
     arpmaxdur: 36
   };
 
-  const svg36 = [
-    '%%beginsvg',
-    '<defs>',
-    '<text id="acc1_3" x="-1">&#xe261; <tspan x="-6" y="-4" style="font-size:14px">&#8593;</tspan></text>',
-    '<text id="acc2_3" x="-1">&#xe262; <tspan x="-5" y="14" style="font-size:14px">&#8595;</tspan></text>',
-    '<text id="acc4_3" x="-1">&#xe262; <tspan x="-5" y="-4" style="font-size:14px">&#8593;</tspan></text>',
-    '<text id="acc-4_3" x="-2">&#xe260; <tspan x="-8.2" y="9" style="font-size:16px">&#8595;</tspan></text>',
-    '<text id="acc-2_3" x="-1">&#xe260; <tspan x="-7.3" y="-1" style="font-size:16px">&#8593;</tspan></text>',
-    '<text id="acc-1_3" x="-1">&#xe261; <tspan x="-2" y="12" style="font-size:14px">&#8595;</tspan></text>',
-    '</defs>',
-    '%%endsvg'
-  ].join('\n');
-
-  // Vendor logs many non-error progress messages through logerr — suppress those.
-  function logerr(s: unknown) {
-    const str = String(s);
-    if (
-      str === 'no error' ||
-      str === 'fonts geladen' ||
-      str === 'notes decoded' ||
-      str.includes('loading instrument')
-    ) {
-      return;
-    }
-    onError?.(str);
-  }
+  const logerr = createLogerr((msg) => onError?.(msg));
 
   function setSynVars() {
     sLib.setSynVars(
@@ -142,20 +110,14 @@
 
   function dolayout(abctxt: string) {
     if (!abc2svg) return;
-    if (/V:\w+\s*tab.*voicemap/s.test(abctxt)) {
-      delete abc2svg.mhooks['strtab'];
-    } else if (tabHaak) {
-      abc2svg.mhooks['strtab'] = tabHaak;
-    }
     const getPlaying = () => isPlaying;
+    abctxt = preprocessAbc(abc2svg, abctxt);
     let voiceMapNames: Record<string, number> = {};
-    if (abctxt.includes('I:percmap')) abctxt = mLib.perc2map(abctxt);
     if (abctxt.includes('%%map')) {
       const [vmn, mt] = mLib.mapPerc(abctxt) as [Record<string, number>, Record<string, unknown>];
       voiceMapNames = vmn;
       mapTab = mt;
     }
-    if (abctxt.includes('temperamentequal')) abctxt = svg36 + '\n' + abctxt;
     let abctxtTemp = abctxt;
     for (const vmapnm in voiceMapNames) {
       const nm1 = `%%voicemap ${vmapnm}`;
@@ -166,17 +128,6 @@
     setSynVars();
     sLib.laadNoot();
     mLib.doLayout(Abc, abctxt, opt, null, 1, abcElm, logerr, addUnlockListener, getPlaying, playBack, dolayout);
-  }
-
-  // Lazy-load the ~290 kB abc2svg engine once. Render happens separately in the
-  // reactive effect below so edits can re-render without re-importing.
-  async function loadAbc2svg() {
-    if (abc2svg) return;
-    const mod = await import('$lib/vendor/abc2svg/abc2svg-bundle.js');
-    const loaded: Abc2Svg = mod.default;
-    abc2svg = loaded;
-    Abc = loaded.Abc;
-    tabHaak = loaded.mhooks['strtab'];
   }
 
   // Lay out (or re-lay out) the score for the current abc text. Stops any active
@@ -298,7 +249,8 @@
     document.body.addEventListener('keydown', keyDown);
 
     (async () => {
-      await loadAbc2svg();
+      abc2svg = await loadAbc2svg();
+      Abc = abc2svg.Abc;
       canRender = true; // triggers the render effect's first (immediate) render
       if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
     })();
@@ -362,27 +314,7 @@
 </script>
 
 {#if loading}
-  <!--
-    Loading row: spinner + "Loading…" text.
-      flex items-center gap-2.5    horizontal, vertically centered, 10px between
-      p-3                          12px padding all around
-  -->
-  <div class="flex items-center gap-2.5 p-3 text-sm text-neutral-500">
-    <!--
-      Pure-CSS spinner — no SVG, no extra dependencies.
-      The trick: a full circle (border-2) with three light-gray sides
-      and one DARKER top side (border-t-neutral-600). When you spin
-      that, the dark segment chases its tail = spinning donut.
-        size-4              16x16px
-        animate-spin        Tailwind's built-in 360° infinite rotation
-        rounded-full        circle
-        motion-reduce:animate-none    freeze if user prefers reduced motion
-    -->
-    <div
-      class="size-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600 motion-reduce:animate-none"
-    ></div>
-    <span>Loading…</span>
-  </div>
+  <LoadingSpinner />
 {/if}
 
 <div class="size-full overflow-auto" {@attach initEngine}></div>
