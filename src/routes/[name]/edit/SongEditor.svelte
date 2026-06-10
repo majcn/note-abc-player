@@ -31,6 +31,9 @@
   onMount(() => {
     const saved = Number(localStorage.getItem(WIDTH_KEY));
     if (saved) editorWidth = clampWidth(saved);
+    // Default to the View tab on mobile — the sheet should render in a visible
+    // container so abc2svg can calculate correct dimensions on first load.
+    if (window.innerWidth < 768) editing = false;
   });
 
   // Clicking a note in the sheet opens the editor (if closed) and jumps the
@@ -109,12 +112,49 @@
     await tick();
     relayoutSheet();
   }
+
+  async function switchToView() {
+    editing = false;
+    await tick();
+    relayoutSheet();
+  }
 </script>
 
-<div class="flex h-dvh w-full overflow-hidden">
+<!--
+  Desktop: flex-row (editor left, sheet right).
+  Mobile:  flex-col (tab bar top, then full-screen editor OR sheet).
+-->
+<div class="flex h-dvh w-full overflow-hidden max-md:flex-col">
+  <!-- Mobile-only tab bar -->
+  <div class="hidden max-md:flex h-10 shrink-0 border-b border-neutral-700 bg-[#0d1117]">
+    <button
+      type="button"
+      onclick={() => (editing = true)}
+      class={[
+        'flex-1 text-sm font-medium transition-colors',
+        editing ? 'text-white border-b-2 border-blue-400' : 'text-neutral-400'
+      ]}
+    >
+      Edit
+    </button>
+    <button
+      type="button"
+      onclick={switchToView}
+      class={[
+        'flex-1 text-sm font-medium transition-colors',
+        !editing ? 'text-white border-b-2 border-blue-400' : 'text-neutral-400'
+      ]}
+    >
+      View
+    </button>
+  </div>
+
   <!-- Left: ABC source editor. Edits flow into abcText; MusicSheet re-renders (debounced). -->
   {#if editing}
-    <div class="shrink-0 overflow-hidden border-r border-neutral-700 bg-[#0d1117]" style="width: {editorWidth}px">
+    <div
+      class="shrink-0 overflow-hidden border-r border-neutral-700 bg-[#0d1117] max-md:!w-full max-md:flex-1 max-md:border-r-0"
+      style="width: {editorWidth}px"
+    >
       <CodeEditor
         bind:this={editor}
         value={abcText}
@@ -124,25 +164,31 @@
       />
     </div>
 
-    <!-- Resize handle -->
+    <!-- Resize handle — desktop only -->
     <div
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize editor"
       tabindex="-1"
       onpointerdown={startResize}
-      class="w-1.5 shrink-0 cursor-col-resize bg-neutral-700 transition-colors hover:bg-neutral-500"
+      class="w-1.5 shrink-0 cursor-col-resize bg-neutral-700 transition-colors hover:bg-neutral-500 max-md:hidden"
     ></div>
   {/if}
 
-  <SongPlayer bind:this={player} abc={abcText} onNoteClick={jumpToNote} />
+  <!--
+    Sheet pane. Wrapped so it can be hidden on mobile while the Edit tab is open.
+    `flex` here propagates the flex context SongPlayer's sheet div (flex-1) relies on.
+  -->
+  <div class={['min-w-0 flex-1 flex overflow-hidden', editing && 'max-md:hidden']}>
+    <SongPlayer bind:this={player} abc={abcText} onNoteClick={jumpToNote} />
+  </div>
 </div>
 
-<!-- Editor toggle -->
+<!-- Editor toggle — desktop only -->
 <button
   type="button"
   onclick={toggleEditor}
-  class="fixed bottom-4 left-4 z-100 rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white shadow-lg hover:bg-neutral-700"
+  class="fixed bottom-4 left-4 z-100 rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white shadow-lg hover:bg-neutral-700 max-md:hidden"
 >
   {editing ? 'Close editor' : 'Edit'}
 </button>
