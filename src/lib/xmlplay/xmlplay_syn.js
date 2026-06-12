@@ -19,10 +19,10 @@ var hasLFO;
 var hasFlt;
 var hasVCF;
 var instMap;
-var cmpDlg, logerr;
+var logerr;
 function setSynVars ( audioCtx_p, opt_p, midiVol_p, midiPan_p, midiInstr_p, midiUsedArr_p,
                       withRT_p, hasPan_p, hasLFO_p, hasFlt_p, hasVCF_p, instMap_p,
-                      cmpDlg_p, logerr_p) {
+                      logerr_p) {
     audioCtx = audioCtx_p;
     opt = opt_p;
     midiVol = midiVol_p;
@@ -35,7 +35,6 @@ function setSynVars ( audioCtx_p, opt_p, midiVol_p, midiPan_p, midiInstr_p, midi
     hasFlt = hasFlt_p;
     hasVCF = hasVCF_p;
     instMap = instMap_p;
-    cmpDlg = cmpDlg_p;
     logerr = logerr_p;
 }
 
@@ -74,8 +73,8 @@ const volCorJS = 0.5 / 32;  // volume scaling factor for midiJS
 const volCorSF = 0.5 / 60;  // idem for Sf2 (60 == volume of !p!)
 var gToSynth = 0;
 
-function loginst (s) { logerr (s); cmpDlg.innerHTML += '<div style="white-space: nowrap">' + s + '</div>'}
-function logcmp (s) { logerr (s); cmpDlg.innerHTML += s + '<br>'}
+function loginst (s) { logerr (s); }
+function logcmp (s) { logerr (s); }
 
 function speel (tijd, inst, noot, cent, dur, tf, vce, velo, orn) {
     if (noot == -1) return; // een rust
@@ -369,20 +368,16 @@ function laadJSfont (inst, url) {
 }
 
 async function laadNoot (playback) {
-    cmpDlg.style.display = 'block';
-    cmpDlg.innerHTML = withRT ? 'Loading SF2 fonts<br>' : 'Loading MIDI-js fonts<br>';
     var urls = [{url: opt.sf2url1, metRT: 1}, {url: opt.sf2url2, metRT: 1},
                 {url: opt.midijsUrl1, metRT: 0}, {url: opt.midijsUrl2, metRT: 0}]
     if (!withRT) urls = urls.slice (2);
     for (var x of urls) {
         try {
             await laadNoot2 (x.url, x.metRT)
-            cmpDlg.style.display = 'none';
             logerr ('fonts geladen')
             if (playback) playback (1); // start playback after loading the notes
             return;
         } catch (err) {
-            cmpDlg.innerHTML += err + '<br>'
             logerr (err);
         }
     }
@@ -423,7 +418,6 @@ async function laadNoot2 (fonturl, metRT) {
             var xs = instArr [inst] [noot + oct].split (',')[1];
             var buffer = await decode (xs)
             golven [insmid] = buffer;
-            cmpDlg.innerHTML += ', ' + inst + ':' + ixm;
             midiLoaded [insmid] = 1; // onthoud dat de noot geladen is
         }
         gToSynth = 1;
@@ -439,7 +433,6 @@ async function laadNoot2 (fonturl, metRT) {
         if (mjsbox) mjsbox.checked = 'true' // eerst kijken of de checkbox er is!
         var midiNums = midiUsedArr.filter (function (m) { return !(m in midiLoaded); });
         await laadMidiJsArr (Object.keys (instrs), fonturl)
-        cmpDlg.innerHTML += 'decode notes:'
         await decodeMidiNums (midiNums);   // only decode samples of notes used in the score
     }
 }
