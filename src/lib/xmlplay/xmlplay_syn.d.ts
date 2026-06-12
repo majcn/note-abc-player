@@ -1,4 +1,19 @@
-// Type shim for vendor JS. See xmlplay_lib.d.ts for rationale.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const syn: Record<string, any>;
-export = syn;
+import type { Opt, Logerr } from './xmlplay_lib';
+
+export declare function setSynVars(
+  audioCtx: AudioContext | null,
+  opt: Opt,
+  midiVol: number[],
+  midiPan: number[],
+  midiInstr: number[],
+  midiUsedArr: string[],
+  withRT: boolean,
+  hasPan: boolean,
+  hasLFO: boolean,
+  hasFlt: boolean,
+  hasVCF: boolean,
+  instMap: number[],
+  logerr: Logerr
+): void;
+
+export declare function laadNoot(playback?: unknown): Promise<void>;
