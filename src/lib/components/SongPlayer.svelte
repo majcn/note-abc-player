@@ -2,6 +2,7 @@
   import { ControlPanel } from '$lib/components/ControlPanel';
   import { MusicSheet } from '$lib/components/MusicSheet';
   import { ErrorToast } from '$lib/components/ErrorToast';
+  import { LoadingSpinner } from '$lib/components/LoadingSpinner';
 
   // The shared playback surface: rendered sheet + transport controls + error
   // toast, plus the player state they exchange. Both the read-only SongView and
@@ -28,18 +29,26 @@
 
 <!-- Rendered music sheet. -->
 <div class="relative min-w-0 flex-1 overflow-hidden max-md:pb-14">
-  <MusicSheet
-    bind:this={sheet}
-    {abc}
-    {voices}
-    {speed}
-    {isPlaying}
-    onLoad={(initial) => (voices = initial)}
-    onBpmChange={(v) => (bpm = v)}
-    onPlayingChange={(v) => (isPlaying = v)}
-    onError={(msg) => toast?.show(msg)}
-    {onNoteClick}
-  />
+  <svelte:boundary>
+    {#snippet pending()}
+      <LoadingSpinner />
+    {/snippet}
+    {#snippet failed(error)}
+      <p class="p-6 text-red-600">{error instanceof Error ? error.message : String(error)}</p>
+    {/snippet}
+    <MusicSheet
+      bind:this={sheet}
+      {abc}
+      {voices}
+      {speed}
+      {isPlaying}
+      onLoad={(initial) => (voices = initial)}
+      onBpmChange={(v) => (bpm = v)}
+      onPlayingChange={(v) => (isPlaying = v)}
+      onError={(msg) => toast?.show(msg)}
+      {onNoteClick}
+    />
+  </svelte:boundary>
 </div>
 
 <div class="fixed top-4 right-4 z-100 max-md:inset-x-0 max-md:top-auto max-md:right-0 max-md:bottom-0">

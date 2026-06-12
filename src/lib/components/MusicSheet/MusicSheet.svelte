@@ -4,11 +4,10 @@
   import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
   import * as sLib from '$lib/xmlplay/xmlplay_syn.js';
   import commonAbc from '$lib/xmlplay/common.abc?raw';
-  import { loadAbc2svg, createLogerr, preprocessAbc, type Abc2Svg } from '$lib/xmlplay/engine';
-  import { LoadingSpinner } from '$lib/components/LoadingSpinner';
+  import { loadAbc2svg, createLogerr, preprocessAbc } from '$lib/xmlplay/engine';
 
-  let abc2svg: Abc2Svg | null = null;
-  let Abc: unknown = null;
+  const abc2svg = await loadAbc2svg();
+  const Abc = abc2svg.Abc;
 
   type Props = {
     abc: string;
@@ -26,27 +25,15 @@
 
   let { abc, voices, speed, isPlaying, onLoad, onBpmChange, onPlayingChange, onError, onNoteClick }: Props = $props();
 
-  // abcElm: engine host DOM element. Set by the {@attach initEngine} on mount;
-  // not reactive (the engine mutates it imperatively).
   let abcElm: HTMLDivElement | null = null;
-  let loading = $state(true);
-
-  // Re-render trigger. canRender flips true once the abc2svg module is loaded;
-  // the render effect then (re)lays out the score whenever `abc` changes — this
-  // is what makes live editing work. firstRender renders immediately; later
-  // edits are debounced.
-  let canRender = $state(false);
-  let firstRender = true;
   const renderDebounceMs = 350;
 
-  // Engine state — non-reactive, mutated imperatively
   let audioCtx: AudioContext | null = null;
   let mapTab: Record<string, unknown> = {};
   // Web Audio capability flags, set once during init from audioCtx feature detection.
   const caps = { withRT: true, hasPan: true, hasLFO: true, hasFlt: true, hasVCF: true };
   // Identity instrument map (this port has no per-voice instrument remapping).
   const instMap = Array.from({ length: 256 }, (_, i) => i);
-  let cmpElm: HTMLDivElement | null = null;
 
   const opt = {
     curmsk: 0,
@@ -79,7 +66,6 @@
       caps.hasFlt,
       caps.hasVCF,
       instMap,
-      cmpElm,
       logerr
     );
   }
@@ -109,7 +95,6 @@
   }
 
   function dolayout(abctxt: string) {
-    if (!abc2svg) return;
     const getPlaying = () => isPlaying;
     abctxt = preprocessAbc(abc2svg, abctxt);
     let voiceMapNames: Record<string, number> = {};
@@ -145,8 +130,6 @@
         resizeNotation();
       } catch (e) {
         onError?.(e instanceof Error ? e.message : String(e));
-      } finally {
-        loading = false; // clear the spinner even if the first render throws
       }
     });
   }
@@ -192,14 +175,12 @@
     }
   }
 
-  // One-time engine setup, as an attachment. Rendering lives in scheduleRender,
-  // so this body reads no reactive state — the attachment runs once on mount and
-  // never re-runs, hence no untrack wrapper or re-entry guard. The returned
-  // function runs on unmount.
+  // One-time engine setup, as an attachment. The returned function runs on unmount.
+  // Rendering is driven by a $effect.root inside here so it's guaranteed to start
+  // only after abcElm and cmpElm are set — no external ordering guards needed.
   const initEngine: Attachment<HTMLDivElement> = (node) => {
     abcElm = node;
     mLib.addElms();
-    cmpElm = document.createElement('div');
 
     const hasSmooth = CSS.supports('scroll-behavior', 'smooth');
     if (!hasSmooth) opt.nosm = 1;
@@ -248,14 +229,27 @@
 
     document.body.addEventListener('keydown', keyDown);
 
-    (async () => {
-      abc2svg = await loadAbc2svg();
-      Abc = abc2svg.Abc;
-      canRender = true; // triggers the render effect's first (immediate) render
-      if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
-    })();
+    if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
+
+    // Render the score reactively. First render is immediate; subsequent abc
+    // changes (live editing) are debounced. Lives inside $effect.root so it
+    // only starts after this attachment has set up abcElm and cmpElm.
+    let firstRender = true;
+    const stopRenderEffect = $effect.root(() => {
+      $effect(() => {
+        const text = abc;
+        if (firstRender) {
+          firstRender = false;
+          renderNow(text);
+          return;
+        }
+        const timer = setTimeout(() => renderNow(text), renderDebounceMs);
+        return () => clearTimeout(timer);
+      });
+    });
 
     return () => {
+      stopRenderEffect();
       window.removeEventListener('resize', resizeHandler);
       mLib.setOnTempo(null);
       mLib.setOnNoteClick(null);
@@ -295,26 +289,6 @@
   $effect(() => {
     mLib.setTempo(speed);
   });
-
-  // Re-render the score whenever `abc` changes (live editing). `abc` and
-  // `canRender` are both read up front so the effect tracks them. First render
-  // is immediate; subsequent edits are debounced, and the returned cleanup
-  // clears a pending timer when `abc` changes again or the component unmounts.
-  $effect(() => {
-    const text = abc;
-    if (!canRender) return;
-    if (firstRender) {
-      firstRender = false;
-      renderNow(text);
-      return;
-    }
-    const timer = setTimeout(() => renderNow(text), renderDebounceMs);
-    return () => clearTimeout(timer);
-  });
 </script>
-
-{#if loading}
-  <LoadingSpinner />
-{/if}
 
 <div class="size-full overflow-auto" {@attach initEngine}></div>
