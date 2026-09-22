@@ -26,6 +26,10 @@
   // reach here. noDash hides the playhead ruler that addElms() injects.
   const opt = {
     curmsk: 0,
+    sf2url1: "",
+    sf2url2: "",
+    midijsUrl1: "",
+    midijsUrl2: "",
     instTab: {},
     instList: {},
     transMap: {},
