@@ -12,7 +12,7 @@ TMP_DIR="$ROOT_DIR/.tmp-abc2svg-update"
 TARBALL_URL="https://chiselapp.com/user/moinejf/repository/abc2svg/tarball/abc2svg.tar.gz?uuid=trunk"
 
 # Files to update
-FILES_TO_UPDATE=("abc2svg-1.js" "chordnames-1.js" "MIDI-1.js" "strtab-1.js")
+FILES_TO_UPDATE=("abc2svg-1.js" "chordnames-1.js" "MIDI-1.js" "strtab-1.js" "page-1.js" "equalbars-1.js" "tunhd-1.js")
 
 echo "=== abc2svg Update Script ==="
 echo ""

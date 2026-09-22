@@ -25495,4 +25495,1087 @@ if (!abc2svg.mhooks)
 	abc2svg.mhooks = {}
 abc2svg.mhooks.strtab = abc2svg.strtab.set_hooks
 
+// page.js - module to generate pages
+//
+// Copyright (C) 2018-2025 Jean-Francois Moine
+//
+// This file is part of abc2svg.
+//
+// abc2svg is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// abc2svg is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with abc2svg.  If not, see <http://www.gnu.org/licenses/>.
+//
+// This module is loaded when "%%pageheight" appears in a ABC source.
+//
+// Parameters
+//	%%pageheight <unit>
+
+if (typeof abc2svg == "undefined")
+    var	abc2svg = {}
+
+abc2svg.page = {
+
+    // function called at end of generation
+    abc_end: function(of) {
+    var page = this.page
+	if (page && page.in_page)
+		abc2svg.page.close_page(page)
+
+	// restore user.img_out and abc2svg.abc_end (needed when more generation)
+	if (abc2svg.page.user_out) {
+		this.get_user().img_out = abc2svg.page.user_out
+		abc2svg.page.user_out = null
+		abc2svg.abc_end = of
+	}
+	of()
+    }, // abc_end()
+
+    // output the SVG tag
+    svg_tag: function(w, h, ty, user) {
+	w = Math.ceil(w)
+	h = Math.ceil(h)
+	return '<svg xmlns="http://www.w3.org/2000/svg" version="1.1"\n\
+ xmlns:xlink="http://www.w3.org/1999/xlink"\n\
+ class="'
+		+ ty + '" '
+		+ (user.imagesize != undefined
+			? (user.imagesize)
+			: ('width="' + w + 'px" height="' + h + 'px"')
+		)
+		+ ' viewBox="0 0 ' + w + ' ' + h + '">'
+    }, // svg_tag()
+
+    // generate a header or a footer in page.hf and return its height
+    gen_hf: function(page, ty) {
+    var	a, i, j, k, x, y, y0, s, str,
+	font = page.abc.get_font(ty.substr(0, 6)),
+	cfmt = page.abc.cfmt(),
+	fh = font.size * 1.1,
+	pos = [ '">',
+		'" text-anchor="middle">',
+		'" text-anchor="end">' ]
+
+	// replace <>& by XML character references
+	function clean_txt(txt) {
+		return txt.replace(/<|>|&.*?;|&/g, function(c) {
+			switch (c) {
+			case '<': return "&lt;"
+			case '>': return "&gt;"
+			case '&': return "&amp;"
+			}
+			return c
+		})
+	} // clean_txt()
+
+	// clear a field if $x said so
+	function clr(str) {
+		return str.indexOf('\u00ff') >= 0 ? '' : str
+	} //clr()
+
+	// create the text of a header or a footer
+	function header_footer(o_font, str) {
+	    var	c, d, i, k, t, n_font, s, noc,
+		c_font = o_font,
+		nl = 1,
+		j = 0,
+		r = ["", "", ""]
+
+		if (str[0] == '"')
+			str = str.slice(1, -1)
+		while (1) {
+			i = str.indexOf('$', j)
+			if (i < 0)
+				break
+			c = str[++i]
+			s = '$' + c		// string to replace
+			switch (c) {
+			case 'd':
+				if (!abc2svg.get_mtime)
+					break // cannot know the change time of the file
+				d = abc2svg.get_mtime(abc.get_parse().fname)
+				// fall thru
+			case 'D':
+				if (c == 'D')
+					d = new Date()
+				if (cfmt.dateformat[0] == '"')
+					cfmt.dateformat = cfmt.dateformat.slice(1, -1)
+				d = strftime(cfmt.dateformat, d)
+				break
+			case 'F':
+				d = typeof document != "undefined"
+					? window.location.href
+					: page.abc.get_parse().fname
+				break
+			case 'I':
+				c = str[++i]
+				s += c
+				// fall thru
+			case 'T':
+				t = page.abc.info()[c]
+				d = t ? t.split('\n', 1)[0] : ''
+				break
+			case 'P':			// current page number
+			case 'Q':			// absolute page number
+				j = str.indexOf('\t', i)
+				noc = str.indexOf('$P', i)
+				noc = noc > 0 && noc < j // if two $P's in the same cell
+					? ''		// don't remove the cell
+					: '\u00ff',	// remove the whole cell
+				t = c == 'P' ? page.pn : page.pna
+				switch (str[i + 1]) {
+				case '0':
+					s += '0'
+					d = (t & 1) ? noc : t
+					break
+				case '1':
+					s += '1'
+					d = (t & 1) ? t : noc
+					break
+				default:
+					d = t
+					break
+				}
+				break
+			case 'V':
+				d = "abc2svg-" + abc2svg.version
+				break
+			default:
+				d = ''
+				if (c == '0')
+					n_font = o_font
+				else if (c >= '1' && c < '9')
+					n_font = page.abc.get_font("u" + c)
+				else
+					break
+
+				// handle the font changes
+				if (n_font == c_font)
+					break
+				if (c_font != o_font)
+					d += "</tspan>"
+				c_font = n_font
+				if (c_font == o_font)
+					break
+				d += '<tspan class="' +
+					font_class(n_font) + '">'
+				break
+			}
+			str = str.replace(s, d)
+			j = i
+		}
+		if (c_font != o_font)
+			str += "</tspan>";
+
+		str = str.split('\n')
+		r[4] = str.length		// number of lines
+		for (j = 0; j < str.length; j++) {
+			if (j != 0)
+				for (i = 0; i < 3; i++)
+					r[i] += '\n'
+			t = str[j].split('\t')
+			if (t.length == 1) {
+				r[1] += clr(t[0])
+			} else {
+				for (i = 0; i < 3; i++) {
+					if (t[i])
+						r[i] += clr(t[i])
+				}
+			}
+		}
+		return r
+	} // header_footer()
+
+	function font_class(font) {
+		if (font.class)
+			return 'f' + font.fid + cfmt.fullsvg + ' ' + font.class
+		return 'f' + font.fid + cfmt.fullsvg
+	}
+
+	// gen_hf
+
+	if (!(page.pn & 1))
+		str = page[ty + '2'] || page[ty]
+	else
+		str = page[ty]
+
+	if (str[0] == '-') {		// not on 1st page
+		if (page.pn == 1)
+			return 0
+		str = str.slice(1)
+	}
+
+	a = header_footer(font, clean_txt(str))
+	y0 = font.size * .8
+	for (i = 0; i < 3; i++) {
+		str = a[i]
+		if (!str)
+			continue
+		if (i == 0)
+			x = cfmt.leftmargin
+		else if (i == 1)
+			x = cfmt.pagewidth / 2
+		else
+			x = cfmt.pagewidth - cfmt.rightmargin
+		y = y0
+		k = 0
+		while (1) {
+			j = str.indexOf('\n', k)
+			if (j >= 0)
+				s = str.slice(k, j)
+			else
+				s = str.slice(k)
+			if (s)
+				page.hf += '<text class="' +
+						font_class(font) +
+						'" x="' + x.toFixed(1) +
+						'" y="' + y.toFixed(1) +
+						pos[i] +
+						s + '</text>\n'
+			if (j < 0)
+				break
+			k = j + 1
+			y += fh
+		}
+	}
+	return fh * a[4]
+    }, // gen_hf()
+
+    // start a new page
+    open_page: function(page,
+			ht) {	// spacing under the header
+    var	h,
+	abc = page.abc,
+	cfmt = abc.cfmt(),
+	sty = '<div style="line-height:0'
+
+	page.pn++
+	page.pna++
+
+	// start a new page
+	if (page.first)
+		page.first = false
+	else
+		sty += ";page-break-before:always"
+	if (page.gutter)
+		sty += ";margin-left:" +
+			((page.pn & 1) ? page.gutter : -page.gutter).toFixed(1) + "px"
+	abc2svg.page.user_out(sty + '">')
+	page.in_page = true
+
+	ht += page.topmargin
+	page.hmax = cfmt.pageheight - page.botmargin - ht
+
+	// define the header/footer
+	page.hf = ''
+	if (page.header) {
+		abc.clr_sty()
+		if (!cfmt.headerfont)
+			abc.param_set_font("headerfont", "text,serif 16")
+		h = abc2svg.page.gen_hf(page, "header")
+		if (!h && page.pn == 1 && page.header1)
+			h = abc2svg.page.gen_hf(page, "header1")
+		sty = abc.get_font_style()			// new style(s)
+		if (cfmt.fullsvg || sty != page.hsty) {
+			page.hsty = sty
+			sty = '<style>' + sty + '\n</style>\n'
+		} else {
+			sty = ''
+		}
+	    if (ht + h)
+		abc2svg.page.user_out(abc2svg.page.svg_tag(
+			cfmt.pagewidth, ht + h, "header", abc.get_user())
+			+ sty +
+			'<g transform="translate(0,' +
+				page.topmargin.toFixed(1) + ')">\n' +
+				page.hf + '</g>\n</svg>')
+		page.hmax -= h;
+		page.hf = ''
+	} else if (ht) {
+		abc2svg.page.user_out(abc2svg.page.svg_tag(cfmt.pagewidth, ht,
+					"header", abc.get_user())
+				+ '\n</svg>')
+	}
+	if (page.footer) {
+		abc.clr_sty()
+		if (!cfmt.footerfont)
+			abc.param_set_font("footerfont", "text,serif 16")
+		page.fh = abc2svg.page.gen_hf(page, "footer")
+		sty = abc.get_font_style()			// new style(s)
+		if (cfmt.fullsvg || sty != page.fsty) {
+			page.fsty = sty
+			page.ffsty = '<style>' + sty + '\n</style>\n'
+		} else {
+			page.ffsty = ''
+		}
+		page.hmax -= page.fh
+	}
+
+	page.h = 0
+    }, // open_page()
+
+    close_page: function(page) {
+    var	h,
+	cfmt = page.abc.cfmt()
+
+	page.in_page = false
+	if (page.footer) {
+		h = page.hmax + page.fh - page.h
+	    if (h)	
+		abc2svg.page.user_out(
+			abc2svg.page.svg_tag(cfmt.pagewidth, h,
+				"footer", page.abc.get_user()) +
+			page.ffsty +
+			'<g transform="translate(0,' +
+				(h - page.fh).toFixed(1) + ')">\n' +
+			page.hf + '</g>\n</svg>')
+	}
+	abc2svg.page.user_out('</div>')
+	page.h = 0
+    }, // close_page()
+
+    // handle the output flow of the abc2svg generator
+    img_in: function(p) {
+    var h, ht, nh,
+	page = this.page
+
+	// copy a block
+	function blkcpy(page) {
+		while (page.blk.length)
+			abc2svg.page.user_out(page.blk.shift())
+		page.blk = null			// direct output
+	} // blkcpy()
+
+	// img_in()
+	switch (p.slice(0, 4)) {
+	case "<div":				// block of new tune
+		if (p.indexOf('newpage') > 0
+		 || (page.oneperpage && this.info().X)
+		 || !page.h) {			// empty page
+			if (page.in_page)
+				abc2svg.page.close_page(page)
+			abc2svg.page.open_page(page, 0)
+		}
+		page.blk = []			// in block
+		page.hb = page.h		// keep the offset of the start of tune
+		break
+	case "<svg":				// SVG image
+		h = Number(p.match(/viewBox="0 0 [\d.]+ ([\d.]+)"/)[1])
+		while (h + page.h >= page.hmax) { // if (still) page overflow
+			ht = page.blk ? 0 :
+				this.cfmt().topspace // tune continuation
+
+			if (page.blk) {
+				if (!page.hb) {	// overflow on the first page
+					blkcpy(page)
+					nh = 0
+				} else {
+					nh = page.h - page.hb
+					page.h = page.hb
+				}
+			}
+			abc2svg.page.close_page(page)
+			abc2svg.page.open_page(page, ht)
+
+			if (page.blk) {		// if inside a block
+				blkcpy(page)	// output the beginning of the tune
+				page.h = nh
+			}
+			if (h > page.hmax)
+				break		// error
+		}
+
+		// if no overflow yet, keep the block
+		if (page.blk)
+			page.blk.push(p)
+		else
+			abc2svg.page.user_out(p)
+		page.h += h
+		break
+	case "</di":				// end of block
+		if (page.blk)
+			blkcpy(page)
+		break
+//	default:
+////fixme: %%beginml cannot be treated (no information about its height)
+//		break
+	}
+    }, // img_in()
+
+    // handle the page related parameters
+    set_fmt: function(of, cmd, parm) {
+    var	v,
+	user = this.get_user(),
+	cfmt = this.cfmt(),
+	page = this.page
+
+	if (cmd == "pageheight") {
+		v = this.get_unit(parm)
+		if (isNaN(v)) {
+			this.syntax(1, this.errs.bad_val, '%%' + cmd)
+			return
+		}
+		if (!user.img_out || !abc2svg.abc_end)
+			v = 0
+		cfmt.pageheight = v
+		if (!v) {
+			if (abc2svg.page.user_out) {
+				user.img_out = abc2svg.page.user_out
+				abc2svg.page.user_out = null
+				abc2svg.page.abc_end = abc2svg.page.abc_end_o
+			}
+			delete this.page
+			return
+		}
+
+		// if first definition, install the hook
+		if (!page || !abc2svg.page.user_out) {
+			this.page = page = {
+				abc: this,
+				topmargin: 38,	// 1cm
+				botmargin: 38,	// 1cm
+//				gutter: 0,
+				h: 0,		// current page height
+				pn: 0,		// page number
+				pna: 0,		// absolute page number
+				ffsty: '',	// style of the footer
+				first: true	// no skip to next page
+			}
+
+			// don't let the backend handle the header/footer
+			if (cfmt.header) {
+				page.header = cfmt.header;
+				cfmt.header = null
+			}
+			if (cfmt.footer) {
+				page.footer = cfmt.footer;
+				cfmt.footer = null
+			}
+			if (cfmt.header1) {
+				page.header1 = cfmt.header1
+				cfmt.header1 = null
+			}
+			if (cfmt.header2) {
+				page.header2 = cfmt.header2
+				cfmt.header2 = null
+			}
+			if (cfmt.footer2) {
+				page.footer2 = cfmt.footer2
+				cfmt.footer2 = null
+			}
+
+			// get the previously defined page parameters
+			if (cfmt.botmargin != undefined) {
+				v = this.get_unit(cfmt.botmargin)
+				if (!isNaN(v))
+					page.botmargin = v
+			}
+			if (cfmt.topmargin != undefined) {
+				v = this.get_unit(cfmt.topmargin)
+				if (!isNaN(v))
+					page.topmargin = v
+			}
+			if (cfmt.gutter != undefined) {
+				v = this.get_unit(cfmt.gutter)
+				if (!isNaN(v))
+					page.gutter = v
+			}
+			if (cfmt.oneperpage)
+				page.oneperpage = this.get_bool(cfmt.oneperpage)
+			if (!cfmt.dateformat)
+				cfmt.dateformat = "%b %e, %Y %H:%M"
+
+			// set the hooks
+			if (!abc2svg.page.user_out) {
+				abc2svg.page.user_out = user.img_out
+				abc2svg.page.abc_end_o = abc2svg.abc_end
+			}
+			abc2svg.abc_end = abc2svg.page.abc_end.bind(this,
+								abc2svg.abc_end)
+			user.img_out = abc2svg.page.img_in.bind(this)
+		}
+		return
+	}
+	if (page) {
+		switch (cmd) {
+		case "header":
+		case "footer":
+		case "header1":
+		case "header2":
+		case "footer2":
+			page[cmd] = parm
+			return
+		case "newpage":
+			if (!parm)
+				break
+			v = Number(parm)
+			if (isNaN(v)) {
+				this.syntax(1, this.errs.bad_val, '%%' + cmd)
+				return
+			}
+			page.pn = v - 1
+			return
+		case "gutter":
+		case "botmargin":
+		case "topmargin":
+			v = this.get_unit(parm)
+			if (isNaN(v)) {
+				this.syntax(1, this.errs.bad_val, '%%' + cmd)
+				return
+			}
+			page[cmd] = v
+			return
+		case "oneperpage":
+			page[cmd] = this.get_bool(parm)
+			return
+		}
+	}
+	of(cmd, parm)
+    }, // set_fmt()
+
+    set_hooks: function(abc) {
+	abc.set_format("page-format", 1)	// do page formatting
+	abc.set_format = abc2svg.page.set_fmt.bind(abc, abc.set_format)
+	abc.set_pagef()
+    }
+} // page
+
+if (!abc2svg.mhooks)
+	abc2svg.mhooks = {}
+abc2svg.mhooks.page = abc2svg.page.set_hooks
+// Port of strftime() by T. H. Doan (https://thdoan.github.io/strftime/)
+/*
+ * Day of year (%j) code based on Joe Orost's answer:
+ * http://stackoverflow.com/questions/8619879/javascript-calculate-the-day-of-the-year-1-366
+ *
+ * Week number (%V) code based on Taco van den Broek's prototype:
+ * http://techblog.procurios.nl/k/news/view/33796/14863/calculate-iso-8601-week-and-year-in-javascript.html
+ */
+// Copyright (c) 2016 Tom Doan - License MIT
+function strftime(sFormat, date) {
+  if (!(date instanceof Date)) date = new Date();
+  var nDay = date.getDay(),
+    nDate = date.getDate(),
+    nMonth = date.getMonth(),
+    nYear = date.getFullYear(),
+    nHour = date.getHours(),
+    aDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    aMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    aDayCount = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334],
+    isLeapYear = function() {
+      return (nYear%4===0 && nYear%100!==0) || nYear%400===0;
+    },
+    getThursday = function() {
+      var target = new Date(date);
+      target.setDate(nDate - ((nDay+6)%7) + 3);
+      return target;
+    },
+    zeroPad = function(nNum, nPad) {
+      return ((Math.pow(10, nPad) + nNum) + '').slice(1);
+    };
+  return sFormat.replace(/%[a-z]/gi, function(sMatch) {
+    return (({
+      '%a': aDays[nDay].slice(0,3),
+      '%A': aDays[nDay],
+      '%b': aMonths[nMonth].slice(0,3),
+      '%B': aMonths[nMonth],
+      '%c': date.toUTCString(),
+      '%C': Math.floor(nYear/100),
+      '%d': zeroPad(nDate, 2),
+      '%e': nDate,
+      '%F': date.toISOString().slice(0,10),
+      '%G': getThursday().getFullYear(),
+      '%g': (getThursday().getFullYear() + '').slice(2),
+      '%H': zeroPad(nHour, 2),
+      '%I': zeroPad((nHour+11)%12 + 1, 2),
+      '%j': zeroPad(aDayCount[nMonth] + nDate + ((nMonth>1 && isLeapYear()) ? 1 : 0), 3),
+      '%k': nHour,
+      '%l': (nHour+11)%12 + 1,
+      '%m': zeroPad(nMonth + 1, 2),
+      '%n': nMonth + 1,
+      '%M': zeroPad(date.getMinutes(), 2),
+      '%p': (nHour<12) ? 'AM' : 'PM',
+      '%P': (nHour<12) ? 'am' : 'pm',
+      '%s': Math.round(date.getTime()/1000),
+      '%S': zeroPad(date.getSeconds(), 2),
+      '%u': nDay || 7,
+      '%V': (function() {
+              var target = getThursday(),
+                n1stThu = target.valueOf();
+              target.setMonth(0, 1);
+              var nJan1 = target.getDay();
+              if (nJan1!==4) target.setMonth(0, 1 + ((4-nJan1)+7)%7);
+              return zeroPad(1 + Math.ceil((n1stThu-target)/604800000), 2);
+            })(),
+      '%w': nDay,
+      '%x': date.toLocaleDateString(),
+      '%X': date.toLocaleTimeString(),
+      '%y': (nYear + '').slice(2),
+      '%Y': nYear,
+      '%z': date.toTimeString().replace(/.+GMT([+-]\d+).+/, '$1'),
+      '%Z': date.toTimeString().replace(/.+\((.+?)\)$/, '$1')
+    }[sMatch] || '') + '') || sMatch;
+  });
+}
+
+// equalbars.js - module to set equal spaced measure bars
+//
+// Copyright (C) 2018-2026 Jean-François Moine
+//
+// This file is part of abc2svg.
+//
+// abc2svg is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// abc2svg is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with abc2svg.  If not, see <http://www.gnu.org/licenses/>.
+//
+// This module is loaded when "%%equalbars" appears in a ABC source.
+//
+// Parameters
+//	%%equalbars bool
+
+"use strict"
+if (typeof abc2svg == "undefined")
+    var	abc2svg = {}
+
+abc2svg.equalbars = {
+
+    // new tune - set the offset of the left symbol and the number of bars
+    output_music: function(of) {
+	this.equalbars = { d: 0, n: 0 }
+	of()
+    },
+
+    // get the equalbars parameter
+   set_fmt: function(of, cmd, parm) {
+	if (cmd != "equalbars") {
+		of(cmd, parm)
+		return
+	}
+    var	fmt = this.cfmt()
+	fmt.equalbars = this.get_bool(parm)
+	fmt.stretchlast = 1
+    },
+
+    // adjust the symbol offsets of a music line
+    // only the bars of the first voice are treated
+    set_sym_glue: function(of, width) {
+    var	C = abc2svg.C,
+	s, s2, d, w, i, n, x, g, t, t0, f,
+	bars = [],
+	tsfirst = this.get_tsfirst(),
+	wb = 0				// width of the bars (.wl)
+
+	of(width)			// compute the x offset of the symbols
+	if (!this.cfmt().equalbars)
+		return
+
+	// search the first note/rest/space
+	for (s2 = tsfirst; s2; s2 = s2.next) {
+		switch (s2.type) {
+		default:
+			continue
+		case C.GRACE:
+		case C.MREST:
+		case C.NOTE:
+		case C.REST:
+		case C.SPACE:
+			break
+		}
+		break
+	}
+	if (!s2)
+		return
+
+	// build an array of the bars
+	t0 = t = s2.time
+	for (s = s2; s.next; s = s.next) {
+		if (s.type == C.BAR && s.seqst && s.time != t) {
+			bars.push([s, s.time - t]);
+			t = s.time
+			wb += s.wl
+		}
+	}
+
+	// push the last bar or replace it in the array
+	if (s.time != t)
+		bars.push([s, s.time - t]),
+		wb += s.wl
+	else
+		bars[bars.length - 1][0] = s	// replace the last bar
+
+	t = s.time
+	if (s.dur)
+		t += s.dur;
+
+	n = bars.length
+	if (n <= 1) {
+		Object.assign(this.equalbars, { d: 0, n: 0 } )
+		return				// one or no bar
+	}
+
+	// if small width, get the widest measure
+	if (s.x < width) {
+		w = 0
+		x = 0
+		for (i = 0; i < n; i++) {
+			s = bars[i][0]
+			if (s.x - x > w)
+				w = s.x - x
+			x = s.x
+		}
+		if (w * n < width)
+			width = w * n
+		this.set_realwidth(width)
+	}
+
+	// if any, don't touch the anacrusis
+	if (bars[0][1] < bars[1][1]) {
+		s2 = bars[0][0]
+		t0 = s2.time
+		n--
+		wb -= s2.wl
+		bars.shift()			// remove the first bar
+		while (!s2.dur)
+			s2 = s2.next
+	}
+
+	// set the offset of the first symbol
+	x = s2.type == C.GRACE ? s2.extra.x : (s2.x - s2.wl)
+
+	if (n != this.equalbars.n)
+		this.equalbars.d = 0
+	if (this.equalbars.d < x) {
+		this.equalbars.d = x		// new offset of the first note/rest
+		this.equalbars.n = n
+	}
+
+	d = this.equalbars.d
+	w = (width - wb - d) / (t - t0)		// width per time unit
+
+	// loop on the bars
+	for (i = 0; i < n; i++) {
+		do {			// don't shift the 1st note from the bar
+			if (s2.type == C.GRACE) {
+				for (g = s2.extra; g; g = g.next)
+					g.x = d + g.x - x
+			} else {
+				s2.x = d + s2.x - x
+			}
+			s2 = s2.ts_next
+		} while (!s2.seqst)
+
+		s = bars[i][0];			// next bar
+		f = w * bars[i][1] / (s.x - x)
+
+		// and update the x offsets
+		for ( ; s2 != s; s2 = s2.ts_next) {
+			if (s2.type == C.GRACE) {
+				for (g = s2.extra; g; g = g.next)
+					g.x = d + (g.x - x + s.wl) * f
+//			} else if (s2.x) {
+			} else {
+				s2.x = d + (s2.x - x + s.wl) * f
+			}
+		}
+		d += w * bars[i][1] + s.wl
+		x = s2.x
+		while (1) {
+			s2.x = d;
+			s2 = s2.ts_next
+			if (!s2 || s2.seqst)
+				break
+		}
+		if (!s2)
+			break
+	}
+    }, // set_sym_glue()
+
+    set_hooks: function(abc) {
+	abc.output_music = abc2svg.equalbars.output_music.bind(abc, abc.output_music);
+	abc.set_format = abc2svg.equalbars.set_fmt.bind(abc, abc.set_format);
+	abc.set_sym_glue = abc2svg.equalbars.set_sym_glue.bind(abc, abc.set_sym_glue)
+    }
+} // equalbars
+
+if (!abc2svg.mhooks)
+	abc2svg.mhooks = {}
+abc2svg.mhooks.equalbars = abc2svg.equalbars.set_hooks
+
+// tunhd.js - module for a formatted tune header
+//
+// Copyright (C) 2025-2026 Jean-François Moine
+//
+// This file is part of abc2svg.
+//
+// abc2svg is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// abc2svg is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with abc2svg.  If not, see <http://www.gnu.org/licenses/>.
+//
+// This module is loaded when "%%titleformat" appears in a ABC source.
+//
+
+"use strict"
+if (typeof abc2svg == "undefined")
+    var	abc2svg = {}
+
+abc2svg.tunhd = {
+    info_fnt: {
+		A: "info",
+		C: "composer",
+		O: "composer",
+		P: "parts",
+		Q: "tempo",
+		R: "info",
+		T: "title",
+		X: "title"
+    },
+
+    // output the tune header from a titleformat
+    tunhd: function(of) {
+    var	abc = this,
+	cfmt = abc.cfmt(),
+	glovar = abc.glovar(),
+	info = abc.info(),
+	info_sz = {
+		A: cfmt.infospace,
+		C: cfmt.composerspace,
+		O: cfmt.composerspace,
+		R: cfmt.infospace
+	},
+	info_nb = {},
+	c, align, q, j,
+	hfnt = abc.get_font("history"),
+	line = [],				// array of [align, str, w, h]
+	p = cfmt.titleformat,
+	i = 0,
+	ya = {
+		l: cfmt.titlespace,
+		c: cfmt.titlespace,
+		r: cfmt.titlespace
+	},
+	xa = {
+		l: 0,
+		c: abc.get_lwidth() * .5,
+		r: abc.get_lwidth()
+	}
+
+	if (!p)
+		return of()
+
+	// output one title line
+	function out() {
+	    var	item, align, p, h, x, y, yd
+
+		while (1) {
+			item = line.shift()
+			if (!item)
+				break
+			align = item[0]
+			p = item[1]
+			h = item[2] * 1.1
+			x = xa[align]
+			y = ya[align] + h
+			yd = y - item[2] * .22	// descent
+			abc.out_svg('<text class="'
+				+ abc.font_class(hfnt)
+				+ '" x="')
+			abc.out_sxsy(x, '" y="', -yd)
+			if (align == 'c')
+				abc.out_svg('" text-anchor="middle')
+			else if (align == 'r')
+				abc.out_svg('" text-anchor="end')
+			abc.out_svg('">' + p + '</text>\n')
+			ya[align] = y
+		}
+		if (ya.c > ya.l)
+			ya.l = ya.c
+		if (ya.r > ya.l)
+			ya.l = ya.r
+		ya.c = ya.r = ya.l
+	} // out()
+
+	// convert a string containing info fields ($x)
+	// and return [ align, string, height ]
+	function cnv(p) {
+	    var	c, j, t, fntnam, fnt, wh, nfnt,
+		h = 0,
+		i = 0,
+		l = 0,
+		o = ""
+
+		while (1) {
+			c = p[i++]
+			if (!c)
+				break
+			if (c != '$') {
+				if (!o)
+					h = hfnt.size * 1.1
+				o += c
+				continue
+			}
+			if (p[i] < 'A' || p[i] > 'Z') {
+				if (isNaN(+p[i]))
+					o += c
+				else
+					nfnt = +p[i++]
+				continue
+			}
+			c = p[i++]			// info letter
+			if (!info[c])
+				continue		// return?
+			j = info_nb[c] || 0
+			info_nb[c] = j + 1
+			t = info[c].split('\n')[j]	// info value
+			if (!t)
+				continue		// return?
+			fntnam = abc2svg.tunhd.info_fnt[c] || "history"
+			fnt = abc.get_font(fntnam)
+			switch (c) {
+			case 'P':
+				t = cfmt.partname ? abc.part_seq(c) : info.P
+				break
+			case 'Q':
+				abc.set_width(glovar.tempo)
+				t = glovar.tempo.tempo_str
+				glovar.tempo.invis = 1 //true
+				break
+			case 'T':
+				if (j)
+					fnt = abc.get_font("subtitle")
+				break
+			default:
+				t = info[c].split('\n')[j]
+				break
+			}
+				if (nfnt)
+					fnt = abc.get_font("u" + nfnt)
+				abc.set_font(fnt)
+			if (c == 'Q') {			// string already formatted
+				wh = glovar.tempo.tempo_wh
+			} else {
+				t = abc.str2svg(t)
+				wh = t.wh
+			}
+			if (fnt != hfnt)
+				t = '<tspan class="' + abc.font_class(fnt)
+					+ '">' + t + '</tspan>'
+			if (wh[1] > h)
+				h = wh[1]
+			o += t
+		}
+		if (!o)
+			return
+		return [ align, o, h]
+	} // cnv()
+
+	abc.set_font(hfnt)
+	while (1) {
+		while (p[i] == ' ')
+			i++
+		c = p[i++]
+		if (!c)
+			break
+		if (c < 'A' || c > 'Z') {
+			switch (c) {
+			case ',':			// end line
+				out()
+				// fall thru
+			default:
+				continue
+			case '<':
+				align = 'l'
+				c = p[i++]
+				break
+			case '>':
+				align = 'r'
+				c = p[i++]
+				break
+			case '"':
+				align = 'c'
+				break
+			}
+		} else {
+			switch (p[i]) {		// old syntax
+			case '-':
+				align = 'l'
+				i++
+				break
+			case '1':
+				align = 'r'
+				i++
+				break
+			case '0':
+				i++
+				// fall thru
+			default:
+				align = 'c'
+				break
+			}
+		}
+		if (c != '"') {
+			q = "$" + c
+			if (p[i] == '+')
+				q += " $" + p[++i]	// assume there is a letter
+		} else {
+			j = p.indexOf('"' , i + 1)
+			if (j < 0) {
+//fixme: error
+				i = p.length
+				continue
+			}
+			q = p.slice(i, j)
+			i = j + 1
+		}
+		q = cnv(q)
+		if (q)					// if some text
+			line.push(q)
+	}
+	out()						// last line
+
+	abc.vskip(ya.l + cfmt.musicspace)
+    }, // tunhd()
+
+    set_fmt: function(of, cmd, parm) {
+	if (cmd == "titleformat")
+		this.cfmt()[cmd] = parm
+	else
+		of(cmd, parm)
+    }, // set_fmt()
+
+    set_hooks: function(abc) {
+	abc.set_format = abc2svg.tunhd.set_fmt.bind(abc, abc.set_format)
+	abc.tunhd = abc2svg.tunhd.tunhd.bind(abc, abc.tunhd)
+    }
+} // tunhd
+
+if (!abc2svg.mhooks)
+	abc2svg.mhooks = {}
+abc2svg.mhooks.tunhd = abc2svg.tunhd.set_hooks
+
 export default abc2svg

@@ -14,6 +14,9 @@ FILES=(
   "chordnames-1.js"
   "MIDI-1.js"
   "strtab-1.js"
+  "page-1.js"
+  "equalbars-1.js"
+  "tunhd-1.js"
 )
 
 echo "=== Bundling abc2svg ==="
