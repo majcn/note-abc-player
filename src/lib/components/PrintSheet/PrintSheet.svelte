@@ -54,11 +54,12 @@
   const initEngine: Attachment<HTMLDivElement> = (node) => {
     abcElm = node;
     mLib.addElms();
+    mLib.setFormat(commonAbc);
     (async () => {
       try {
         abc2svg = await loadAbc2svg();
         Abc = abc2svg.Abc;
-        dolayout(commonAbc + abc);
+        dolayout(abc);
       } catch (e) {
         onError?.(e instanceof Error ? e.message : String(e));
       } finally {

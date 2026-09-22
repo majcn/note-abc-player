@@ -28,6 +28,7 @@ export declare function getVolumes(): number[];
 export declare function setTempo(speed: number): void;
 export declare function setOnTempo(fn: ((bpm: number) => void) | null): void;
 export declare function setOnNoteClick(fn: ((offset: number) => void) | null): void;
+export declare function setFormat(abcFormatTxt: string): void;
 export declare function addElms(): void;
 export declare function setScale(): void;
 export declare function putMarkLoc(note: unknown, align?: number): void;

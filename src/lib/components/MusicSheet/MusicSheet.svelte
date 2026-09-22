@@ -142,7 +142,7 @@
       try {
         mLib.stop_markeer();
         onPlayingChange?.(false);
-        dolayout(commonAbc + text);
+        dolayout(text);
         onLoad?.(mLib.getVolumes());
         resizeNotation();
       } catch (e) {
@@ -154,10 +154,9 @@
     });
   }
 
-  // Highlight/scroll to the note matching an editor cursor offset. The offset is
-  // into `abc`; the engine indexes into `commonAbc + abc`, so add the header length.
+  // Highlight/scroll to the note matching an editor cursor offset (into `abc`).
   export function highlightSource(offset: number) {
-    mLib.markBySourceOffset(offset + commonAbc.length);
+    mLib.markBySourceOffset(offset);
   }
 
   function keyDown(e: KeyboardEvent) {
@@ -201,6 +200,7 @@
   const initEngine: Attachment<HTMLDivElement> = (node) => {
     abcElm = node;
     mLib.addElms();
+    mLib.setFormat(commonAbc);
 
     const hasSmooth = CSS.supports('scroll-behavior', 'smooth');
     if (!hasSmooth) opt.nosm = 1;
@@ -239,13 +239,8 @@
     // notes / the user seeks across the score.
     mLib.setOnTempo((tmp: number) => onBpmChange?.(tmp));
 
-    // Note-click callback: offsets are into `commonAbc + abc`, so subtract the
-    // header length to map back into `abc`. Clicks inside the header map to a
-    // negative offset and are ignored.
-    mLib.setOnNoteClick((offset: number) => {
-      const inAbc = offset - commonAbc.length;
-      if (inAbc >= 0) onNoteClick?.(inAbc);
-    });
+    // Note-click callback: the engine reports offsets into `abc` directly.
+    mLib.setOnNoteClick((offset: number) => onNoteClick?.(offset));
 
     document.body.addEventListener('keydown', keyDown);
 

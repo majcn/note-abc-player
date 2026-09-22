@@ -57,6 +57,9 @@ function dispatchTempoChange (tmp) {
 var onNoteClick = null; // host callback, set via setOnNoteClick
 function setOnNoteClick (fn) { onNoteClick = fn; }   // gets the clicked note's abc source offset (istart)
 
+var fmtPrelude = '';
+function setFormat (abcFormatTxt) { fmtPrelude = abcFormatTxt || ''; }
+
 function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) {
     var abc2svg;
     var errtxt = '';
@@ -346,6 +349,7 @@ function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkEx
     }
     abc2svg = new Abc (user);
     abc2svg.tosvg ('play', '%%play');   // houdt rekening met transpose= in K: of V:
+    abc2svg.tosvg ('fmt', fmtPrelude);
     abc2svg.tosvg ('abc2svg', abctxt);
     allNotes = allNotesAccum;
     allNotes.sort ((a, b) => a.t - b.t);
@@ -474,6 +478,7 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
         'get_abcmodel': null
     }
     abc2svg = new Abc (user);
+    abc2svg.tosvg ('fmt', fmtPrelude);
     abc2svg.tosvg ('abc2svg', abctxt);
     if (errtxt == '') errtxt = 'no error';
     logerr (errtxt.trim ());
@@ -843,7 +848,7 @@ function addElms () {
 }
 
 export { 
-    setVolume, getVolumes, setTempo, setOnTempo, setOnNoteClick,
+    setVolume, getVolumes, setTempo, setOnTempo, setOnNoteClick, setFormat,
     doModel, stf2name, vce2stf, midiVol, midiPan, midiInstr, midiUsedArr,
     doLayout, mkNtsSeq, ntsSeq,
     start_markeer, stop_markeer, iSeq,

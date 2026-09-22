@@ -25,21 +25,6 @@ export async function loadAbc2svg(): Promise<Abc2Svg> {
   return cached;
 }
 
-// Equal-temperament accidental glyphs (1/3-tone arrows), prepended to tunes
-// that use %%temperamentequal.
-export const svg36 = [
-  '%%beginsvg',
-  '<defs>',
-  '<text id="acc1_3" x="-1">&#xe261; <tspan x="-6" y="-4" style="font-size:14px">&#8593;</tspan></text>',
-  '<text id="acc2_3" x="-1">&#xe262; <tspan x="-5" y="14" style="font-size:14px">&#8595;</tspan></text>',
-  '<text id="acc4_3" x="-1">&#xe262; <tspan x="-5" y="-4" style="font-size:14px">&#8593;</tspan></text>',
-  '<text id="acc-4_3" x="-2">&#xe260; <tspan x="-8.2" y="9" style="font-size:16px">&#8595;</tspan></text>',
-  '<text id="acc-2_3" x="-1">&#xe260; <tspan x="-7.3" y="-1" style="font-size:16px">&#8593;</tspan></text>',
-  '<text id="acc-1_3" x="-1">&#xe261; <tspan x="-2" y="12" style="font-size:14px">&#8595;</tspan></text>',
-  '</defs>',
-  '%%endsvg'
-].join('\n');
-
 // Vendor logs many non-error progress messages through logerr — suppress those.
 export function createLogerr(onError: ((message: string) => void) | undefined) {
   return (s: unknown) => {
@@ -65,7 +50,26 @@ export function preprocessAbc(abc2svg: Abc2Svg, abctxt: string): string {
   } else if (tabHaak) {
     abc2svg.mhooks['strtab'] = tabHaak;
   }
-  if (abctxt.includes('I:percmap')) abctxt = mLib.perc2map(abctxt);
-  if (abctxt.includes('temperamentequal')) abctxt = svg36 + '\n' + abctxt;
+
+  if (abctxt.includes('I:percmap')) {
+    abctxt = mLib.perc2map(abctxt);
+  }
+
+  if (abctxt.includes('temperamentequal')) {
+    // Equal-temperament accidental glyphs (1/3-tone arrows).
+    const svg36 = `%%beginsvg
+<defs>
+<text id="acc1_3" x="-1">&#xe261; <tspan x="-6" y="-4" style="font-size:14px">&#8593;</tspan></text>
+<text id="acc2_3" x="-1">&#xe262; <tspan x="-5" y="14" style="font-size:14px">&#8595;</tspan></text>
+<text id="acc4_3" x="-1">&#xe262; <tspan x="-5" y="-4" style="font-size:14px">&#8593;</tspan></text>
+<text id="acc-4_3" x="-2">&#xe260; <tspan x="-8.2" y="9" style="font-size:16px">&#8595;</tspan></text>
+<text id="acc-2_3" x="-1">&#xe260; <tspan x="-7.3" y="-1" style="font-size:16px">&#8593;</tspan></text>
+<text id="acc-1_3" x="-1">&#xe261; <tspan x="-2" y="12" style="font-size:14px">&#8595;</tspan></text>
+</defs>
+%%endsvg
+`;
+    abctxt = svg36 + abctxt;
+  }
+
   return abctxt;
 }
