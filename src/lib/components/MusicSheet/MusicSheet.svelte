@@ -18,12 +18,22 @@
     onBpmChange?: (bpm: number) => void;
     onPlayingChange?: (playing: boolean) => void;
     onError?: (message: string) => void;
-    // Fired when a note in the rendered sheet is clicked, with its character
-    // offset into `abc` (already adjusted for the prepended common header).
+    onErrorClear?: () => void;
     onNoteClick?: (offset: number) => void;
   };
 
-  let { abc, voices, speed, isPlaying, onLoad, onBpmChange, onPlayingChange, onError, onNoteClick }: Props = $props();
+  let {
+    abc,
+    voices,
+    speed,
+    isPlaying,
+    onLoad,
+    onBpmChange,
+    onPlayingChange,
+    onError,
+    onErrorClear,
+    onNoteClick
+  }: Props = $props();
 
   let abcElm: HTMLDivElement | null = null;
   const renderDebounceMs = 350;
@@ -50,7 +60,13 @@
     arpmaxdur: 36
   };
 
-  const logerr = createLogerr((msg) => onError?.(msg));
+  let renderErrored = false;
+  function reportError(message: string) {
+    renderErrored = true;
+    onError?.(message);
+  }
+
+  const logerr = createLogerr(reportError);
 
   function setSynVars() {
     sLib.setSynVars(
@@ -122,6 +138,7 @@
   // render effect's dependencies.
   function renderNow(text: string) {
     untrack(() => {
+      renderErrored = false;
       try {
         mLib.stop_markeer();
         onPlayingChange?.(false);
@@ -129,7 +146,10 @@
         onLoad?.(mLib.getVolumes());
         resizeNotation();
       } catch (e) {
-        onError?.(e instanceof Error ? e.message : String(e));
+        reportError(e instanceof Error ? e.message : String(e));
+      }
+      if (!renderErrored) {
+        onErrorClear?.();
       }
     });
   }

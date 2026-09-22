@@ -8,6 +8,11 @@
     error = msg == null ? '' : String(msg);
   }
 
+  /** Hide the toast — the condition it reported is gone. */
+  export function clear() {
+    error = null;
+  }
+
   // The vendor engine reports some failures via window.alert(); route those into
   // the toast while mounted, restoring the original handler on teardown.
   $effect(() => {
