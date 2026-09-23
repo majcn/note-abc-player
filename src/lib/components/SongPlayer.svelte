@@ -13,7 +13,7 @@
   let { abc, onNoteClick }: Props = $props();
 
   let sheet = $state<{ highlightSource: (offset: number) => void }>();
-  let toast = $state<{ show: (msg: unknown) => void; clear: () => void }>();
+  let errorMsg = $state<string | null>(null);
 
   let voices = $state<number[]>([]);
   let speed = $state(1);
@@ -45,8 +45,8 @@
       onLoad={(initial) => (voices = initial)}
       onBpmChange={(v) => (bpm = v)}
       onPlayingChange={(v) => (isPlaying = v)}
-      onError={(msg) => toast?.show(msg)}
-      onErrorClear={() => toast?.clear()}
+      onError={(msg) => (errorMsg = msg)}
+      onErrorClear={() => (errorMsg = null)}
       {onNoteClick}
     />
   </svelte:boundary>
@@ -64,4 +64,4 @@
   />
 </div>
 
-<ErrorToast bind:this={toast} />
+<ErrorToast msg={errorMsg} onClose={() => (errorMsg = null)} />

@@ -1,49 +1,36 @@
 <script lang="ts">
-  // Self-contained: the toast owns the currently displayed error. Callers push
-  // errors via the exported show(); the ✕ button clears it. null = hidden.
-  let error = $state<string | null>(null);
+  import { fly } from 'svelte/transition';
 
-  /** Display an error message (string-ified; null/undefined shows an empty toast). */
-  export function show(msg: unknown) {
-    error = msg == null ? '' : String(msg);
-  }
+  // Presentational: the parent owns the error and clears it on onClose (✕). null = hidden.
+  type Props = { msg: string | null; onClose: () => void };
 
-  /** Hide the toast — the condition it reported is gone. */
-  export function clear() {
-    error = null;
-  }
-
-  // The vendor engine reports some failures via window.alert(); route those into
-  // the toast while mounted, restoring the original handler on teardown.
-  $effect(() => {
-    const previous = window.alert;
-    window.alert = show;
-    return () => {
-      window.alert = previous;
-    };
-  });
+  let { msg, onClose }: Props = $props();
 </script>
 
-{#if error !== null}
-  <!--
-    Toast pinned to the top center of the viewport.
-      fixed                positioned relative to viewport, not the page flow
-      top-4                16px from top
-      left-1/2 + -translate-x-1/2     classic centering trick: anchor the LEFT
-                                       edge at 50% width, then shift the element
-                                       back by half its OWN width
-      z-[200]              float above everything else
-      max-w-[90vw]         never wider than 90% of the viewport (mobile safety)
-      flex items-center gap-3   horizontal layout: message + dismiss button
-      rounded-[10px]       slightly tighter than the panel's 12px
-      border/bg/text       red color scheme for "this is bad"
-      shadow + backdrop-blur   match the control panel's glass look
-  -->
+<!--
+  Toast pinned to the top center of the viewport.
+    fixed                positioned relative to viewport, not the page flow
+    top-4                16px from top
+    left-1/2 + -translate-x-1/2     classic centering trick: anchor the LEFT
+                                      edge at 50% width, then shift the element
+                                      back by half its OWN width
+    z-[200]              float above everything else
+    max-w-[90vw]         never wider than 90% of the viewport (mobile safety)
+    flex items-center gap-3   horizontal layout: message + dismiss button
+    rounded-[10px]       slightly tighter than the panel's 12px
+    border/bg/text       red color scheme for "this is bad"
+    shadow + backdrop-blur   match the control panel's glass look
+  transition: slides down from 10px above while fading in; reverse on hide.
+  whitespace-pre-line on the message: the engine joins multiple errors with
+  "\n"; keep them on separate lines (other whitespace still collapses).
+-->
+{#if msg !== null}
   <div
     class="fixed top-4 left-1/2 z-[200] flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-[10px] border border-error-border bg-error-bg px-3.5 py-2.5 text-[13px] text-error-text shadow-panel backdrop-blur-panel"
     role="alert"
+    transition:fly={{ y: -10, duration: 500 }}
   >
-    <span>{error}</span>
+    <span class="whitespace-pre-line">{msg}</span>
     <!--
       Dismiss ✕ button.
         shrink-0             don't get squeezed by long error messages
@@ -56,7 +43,7 @@
       type="button"
       class="shrink-0 cursor-pointer text-sm leading-none opacity-60 transition-opacity select-none hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error-accent"
       aria-label="Dismiss"
-      onclick={() => (error = null)}>✕</button
+      onclick={onClose}>✕</button
     >
   </div>
 {/if}

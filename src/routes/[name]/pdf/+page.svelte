@@ -5,7 +5,7 @@
 
   let { data }: PageProps = $props();
 
-  let toast = $state<{ show: (msg: unknown) => void }>();
+  let errorMsg = $state<string | null>(null);
 </script>
 
 <svelte:head><title>{data.title} (Print mode)</title></svelte:head>
@@ -39,12 +39,12 @@
 <div class="paper-wrap flex justify-center bg-neutral-100 p-4 print:block print:bg-white print:p-0">
   <div class="paper w-[210mm] bg-white p-[12mm] shadow-md print:w-auto print:p-0 print:shadow-none">
     {#key data.name}
-      <PrintSheet abc={data.abc} onError={(msg) => toast?.show(msg)} />
+      <PrintSheet abc={data.abc} onError={(msg) => (errorMsg = msg)} />
     {/key}
   </div>
 </div>
 
-<ErrorToast bind:this={toast} />
+<ErrorToast msg={errorMsg} onClose={() => (errorMsg = null)} />
 
 <style>
   @media print {

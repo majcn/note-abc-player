@@ -671,7 +671,7 @@ function regelOmhoog (inc) {
 }
 
 function markeer () {
-    if (!audioCtx) { alert (alrtMsg2); return }
+    if (!audioCtx) return;
     dispatchTempoChange (ntsSeq [iSeq]?.tmp ?? 120);
     var t0 = audioCtx.currentTime * 1000;
     var dt = 0, t1, tf;
