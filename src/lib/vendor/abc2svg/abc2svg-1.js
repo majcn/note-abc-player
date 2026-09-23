@@ -578,6 +578,7 @@ var decos = {
 	"~)": "8 glisq 0 0 0",
 // internal
 //	color: "10 0 0 0 0",
+//	color: "11 0 0 0 0",
 	invisible: "32 0 0 0 0",
 	beamon: "33 0 0 0 0",
 	trem1: "34 0 0 0 0",
@@ -792,6 +793,13 @@ function d_near(de) {
 		y -= dd.h
 		s.ymn = y - dd.hd
 	}
+
+	// shift the dot
+	if (dd.glyph == "stc" && !s.a_dd[1]		// if alone on the note,
+	 && !(s.beam_st && s.beam_end)			// on a beam
+	 && ((up && s.stem >= 0) || (!up && s.stem < 0))) // and in the same direction
+		de.x += up ? 3.5 : -3.5
+
 	de.x -= dd.wl
 	de.y = y
 	if (s.type == C.NOTE)
@@ -1144,7 +1152,7 @@ function deco_def(nm, nmd) {
 		error(1, null, "%%deco: bad C function value '$1'", a[1])
 		return //undefined
 	}
-	if (c_func > 10
+	if (c_func > 11
 	 && (c_func < 32 || c_func > 45)) {
 		error(1, null, "%%deco: bad C function index '$1'", c_func)
 		return //undefined
@@ -1403,6 +1411,8 @@ function deco_cnv(s, prev) {
 			} else {
 				s.color = nm
 			}
+			break
+		case 11:
 			break
 		case 32:		/* invisible */
 			s.invis = true
@@ -1673,6 +1683,7 @@ Abc.prototype.draw_all_deco = function() {
 	if (!a_de.length)
 		return
 	var	de, dd, s, note, f, st, x, y, y2, ym, uf, i, str, a,
+		ocol,
 		new_de = [],
 		ymid = []
 
@@ -1737,6 +1748,18 @@ Abc.prototype.draw_all_deco = function() {
 
 		if (dd.dd_en)			// start of long decoration
 			continue
+
+		if (dd.func == 11) {	// set deco color
+			if (ocol) {
+				set_color(ocol)
+				ocol = 0
+			}
+			if (/^#0+$/.test(dd.name))	// if black
+				set_color(0)
+			else
+				ocol = set_color(dd.name)
+			continue
+		}
 
 		// handle the stem direction
 		s = de.s
@@ -1895,7 +1918,8 @@ function draw_deco_near() {
 			y = s.y
 			switch (dd.func) {
 			default:
-				if (dd.func >= 10)
+				if (dd.func >= 10
+				 && dd.func != 11)
 					continue
 				pos = 0
 				break
@@ -5219,11 +5243,8 @@ function draw_tuplet(s1) {
 	set_dscale(dir == C.SL_ABOVE ? stu : std)
 
 	if (s1 == s2				// tuplet with 1 note (!)
-	 || tp.f[1] == 2) {			// what == nothing
+	 || tp.f[1] >= 1) {			// 'with' == nothing or slur
 		nb_only = true
-	} else if (tp.f[1] == 1) {			/* 'what' == slur */
-		nb_only = true;
-		draw_slur([s1, s2], {ty: dir})
 	} else {
 
 		/* search if a bracket is needed */
@@ -5276,7 +5297,7 @@ function draw_tuplet(s1) {
 
 	/* if number only, draw it */
 	if (nb_only) {
-		if (tp.f[2] == 1)		/* if 'which' == none */
+		if (tp.f[2] == 1)		/* if 'what' == none */
 			return
 		set_font("tuplet")
 		xm = (s2.x + s1.x) / 2
@@ -5287,10 +5308,13 @@ function draw_tuplet(s1) {
 					gene.curfont.size
 
 		if (s1.stem * s2.stem > 0) {
-			if (s1.stem > 0)
-				xm += 4
-			else
-				xm -= 4
+			if (s1.stem > 0) {
+				if (dir == C.SL_ABOVE)
+					xm += 3
+			} else {
+				if (dir != C.SL_ABOVE)
+					xm -= 3
+			}
 		}
 
 		yy = ym + gene.curfont.size * .22
@@ -5313,10 +5337,14 @@ function draw_tuplet(s1) {
 				s3.ymn = ym;
 			y_set(std, 0, xm - 3, 6, ym)
 		}
+
+		// if any, draw the slur now
+		if (tp.f[1] == 1)			// 'with' == slur
+			draw_slur([s1, s3, s2], {ty: dir})
 		return
 	}
 
-	// here, 'what' is square bracket
+	// here, 'with' is square bracket
 
 /*fixme: two staves not treated*/
 /*fixme: to optimize*/
@@ -5522,7 +5550,7 @@ function draw_tie(not1, not2,
 				// 3: no start for clef or staff change
     var	m, x1, s, y, h, time,
 	p = job == 2 ? not1.pit : not2.pit,
-	dir = (not1.tie_ty & 0x07) == C.SL_ABOVE ? 1 : -1,
+	dir = (not1.tie_ty & 0x07) == C.SL_BELOW ? -1 : 1,
 	s1 = not1.s,
 	st = s1.st,
 	s2 = not2.s,
@@ -7016,9 +7044,6 @@ function set_tie_room() {
 		s = p_voice.sym
 		if (!s)
 			continue
-		s = s.next
-		if (!s)
-			continue
 		set_tie_dir(s)
 		for ( ; s; s = s.next) {
 			if (!s.ti1)
@@ -7525,6 +7550,7 @@ var cfmt = {
 	footerfont: { name: txt_ff, size: 16 },
 	fullsvg: '',
 	gchordfont: { name: "text,sans-serif", size: 12 },
+//	gracedur: null,
 	gracespace: new Float32Array([6, 8, 11]),	// left, inside, right
 	graceslurs: true,
 	headerfont: { name: txt_ff, size: 16 },
@@ -7615,6 +7641,7 @@ bstemdown: true,
 cancelkey: true,
 dynalign: true,
 flatbeams: true,
+gracedur: 1, //true
 gracespace: true,
 hyphencont: true,
 keywarn: true,
@@ -7747,7 +7774,7 @@ function param_set_font(xxxfont, p) {
 		font.src = p.slice(0, n + 1)
 		font.fid = abc2svg.font_tb.length
 		abc2svg.font_tb.push(font)
-		font.name = font.src.match(/(\w+)\.\w+\)$/)[1]
+		font.name = 'f' + font.fid
 		p = p.replace(font.src, '')
 	}
 
@@ -8016,12 +8043,14 @@ Abc.prototype.set_format = function(cmd, param) {
 	case "abc-version":
 	case "bgcolor":
 	case "fgcolor":
+	case "playbeats":			// used in sndgen.js
 	case "propagate-accidentals":
 	case "writeout-accidentals":
 		cfmt[cmd] = param
 		break
 	case "beamslope":
 	case "breaklimit":			// float values
+	case "gracedur":
 	case "lineskipfac":
 	case "maxshrink":
 	case "pagescale":
@@ -9665,15 +9694,14 @@ error(2, s, "Bad linkage")
 /* -- unlink a symbol -- */
 function unlksym(s) {
 	if (tsfirst == s) {		// if first symbol of the line
+		if (gene.tslast) {
+			s.ts_prev = gene.tslast
+			gene.tslast = s	// new end of previous line
+		}
 		tsfirst = s.ts_next	// just start on the next symbol
 		if (!tsfirst)
 			return		// no symbol anymore
 		tsfirst.ts_prev = null
-//--fixme
-		if (gene.tslast) {
-			s.ts_prev = gene.tslast
-			gene.tslast = s
-		}
 		tsfirst.seqst = 1 //true
 		if (s.p_v.s_prev
 		 && s.p_v.s_prev.next == s) {	// if symbol of the old sequence
@@ -9684,6 +9712,7 @@ function unlksym(s) {
 			return
 		}
 		if (s.p_v.sym == s) {
+			s.next.prev = null
 			s.p_v.sym = s.next
 			return
 		}
@@ -10623,7 +10652,7 @@ function add_end_bar(s) {
 // and once more for each new music line
 function set_allsymwidth(first) {
     var	val, st, s_chs, stup, itup,
-	s = tsfirst,
+	s = first || tsfirst,
 	s2 = s,
 	xa = 0,
 	xl = [],
@@ -10665,7 +10694,7 @@ function set_allsymwidth(first) {
 			s2.space = s2.ts_prev.space /= 2
 
 		if (itup) {
-			if (!first)
+			if (first)		// if not the first time
 				break
 			if (!stup)
 				stup = s2
@@ -11196,9 +11225,7 @@ next_sym:	for (s2 = s; s2 && s2.time == s.time; s2 = s2.ts_next) {
 					break
 				continue
 			case C.CLEF:
-				if (!s2.clef_none)	// if 'K: clef=none' after bar
-					break
-				continue
+				break
 			}
 
 			for (i = 0; i < sym_a.length; i++) {
@@ -11206,22 +11233,31 @@ next_sym:	for (s2 = s; s2 && s2.time == s.time; s2 = s2.ts_next) {
 				 && sym_a[i].type == type)
 					continue next_sym
 			}
+			sym_a.push(s2)
 
 			s1 = type == C.CLEF ? s3 : nl	// move point
 
+			if (s2 == nl) {
+				do {
+					nl = nl.ts_next
+				} while (nl.type == type && !nl.seqst)
+			}
+
 			if (s2 == s1) {			// if move to the same point
-				while (s2.ts_next && s2.ts_next.type == type)
+				while (s2.ts_next && s2.ts_next.type == type
+				    && !s2.ts_next.seqst)
 					s2 = s2.ts_next
-				nl = s2.ts_next		// move the start of next line
 				continue
 			}
 
 			// move the symbols to the current line
-			for (s4 = s2;
-			     s4.type == type;
+			for (s4 = s2.ts_next;
+			     s4.type == type && !s4.seqst;
 			     s4 = s4.ts_next) {
 				for (s5 = s1; s5.v != s4.v; s5 = s5.ts_next)
 					;
+				if (s4 == s5)
+					continue
 				s4.prev.next=s4.next		// symbol linkage
 				s4.next.prev=s4.prev
 				s4.prev = s5.prev
@@ -11241,18 +11277,18 @@ next_sym:	for (s2 = s; s2 && s2.time == s.time; s2 = s2.ts_next) {
 			s1.ts_prev = s5
 			s5.ts_next = s1
 
-			s2 = s4
-		}
-
-		// adjust the spacing if the start of new line moved
-		if (nl != s) {
-			if(!nl.seqst) {
-				nl.seqst = 1 //true
-				nl.shrink = nl.wl + nl.prev.wr
+			// adjust the spacing
+			if (!s2.seqst) {
+				s2.seqst = 1 //true
+				s4.seqst = 0
+				for (s5 = s2.ts_prev; !s5.seqst; s5 = s5.ts_prev)
+					;
+				s4.ts_prev.ts_next = null
+				set_allsymwidth(s5)
+				s4.ts_prev.ts_next = s4
 			}
-			nl.ts_prev.ts_next = null
-			set_allsymwidth(s)
-			nl.ts_prev.ts_next = nl
+
+			s2 = s4
 		}
 		return nl
 	} // do_warn()
@@ -13075,7 +13111,7 @@ function init_music_line() {
 			;
 	s2 = s.ts_next
 	s.ts_next = null
-	set_allsymwidth()
+	set_allsymwidth(tsfirst)
 	s.ts_next = s2
 } // init_music_line()
 
@@ -13086,7 +13122,7 @@ function check_end_bar() {
 	while (s.ts_next)
 		s = s.ts_next
 	if (s.type != C.BAR) {
-		for (s2 = s.ts_prev; s2 && s2.time == s.time; s2 = s2.ts_prev) {
+		for (s2 = s; s2 && s2.time == s.time; s2 = s2.ts_prev) {
 			if (s2.bar_type)	// don't add a bar if "bar block*"
 				return
 			if (s2.type != C.BLOCK)
@@ -13545,6 +13581,8 @@ function same_head(s1, s2) {
 	}
 	if (s1.stem * s2.stem > 0)
 		return false
+	if ((s1.tp || s2.tp) && l1 != l2)
+		return
 
 	/* check if a common unison */
 	i1 = i2 = 0
@@ -14796,7 +14834,7 @@ Abc.prototype.output_music = function() {
 		set_rest_offset();	/* set the vertical offset of rests */
 		set_overlap();		/* shift the notes on voice overlap */
 	}
-	set_allsymwidth(1)		// set the width of all symbols
+	set_allsymwidth()		// set the width of all symbols
 
 	// output the blocks and define the page layout
 	gen_init()
@@ -15793,7 +15831,9 @@ function new_meter(p) {
 						break
 					meter.top += p[i++]
 				}
-				m1 = eval(meter.top.replace(/ /g, '+'))
+				m1 = meter.top
+					.split(/[ +]+/)
+					.reduce((a, v) => a + +v, 0)
 				break
 			}
 			if (!in_parenth) {
@@ -16316,7 +16356,8 @@ function new_bar() {
 		s2 = curvoice.last_sym
 
 		// if the previous symbol is also a bar
-		if (s2 && s2.type == C.BAR) {
+		if (s2 && s2.type == C.BAR
+		 && !s2.text) {
 //		&& !s2.a_gch && !s2.a_dd
 //		&& !s.a_gch && !s.a_dd) {
 
@@ -19155,7 +19196,8 @@ function defs_add(text) {
 				break
 			ie += 3 + tag.length
 		}
-		if (text.substr(is, 7) == '<filter')
+		if (text.substr(is, 7) == '<filter'
+		 || text.substr(is, 7) == '<marker')
 			fulldefs += text.slice(is, ie) + '\n'
 		else
 			glyphs[gl] = text.slice(is, ie)
@@ -19632,16 +19674,23 @@ function out_bracket(x, y, h) {
 // hyphen
 function out_hyph(x, y, w) {
     var	i,
-	sz = cwidf('-'),			// hyphen width
-	d = 5 * sz,				// expected width between - .. -
-	n = ((w - 2 * sz) / d) | 0
+	d = 8,					// offset 1st hyphen and hyphen width
+	n = w / d / 7 |0			// number of hyphens less 1
 
-	if (n < 0)
-		n = 0
-	x += (w - n * d - sz) / 2
+	if (!n)					// if only one hyphen
+		d = (w - d) / 2 + 2		// x offset
+	else
+		w -= d * 3			// ending spaces and the last hyphen
+	x += d					// offset first hyphen
+	if (n) {
+		x -= d / 2			// 1st hyphen a bit closer
+		w += d				// last hyphen a bit furtherer
+	}
+
 	output += '<text class="' + font_class(gene.curfont)
 		+ '" x="' + sx(x).toFixed(2)
 	i = n
+	d = w / n
 	while (--n >= 0) {
 		x += d
 		output += "," + sx(x).toFixed(2)
@@ -21311,6 +21360,17 @@ Abc.prototype.do_pscom = function(text) {
 	case "linebreak":
 		set_linebreak(param)
 		return
+	case "loadjs":				// any JS file
+		cmd = param.match(/[^\s]+/)
+		if (!cmd)
+			return
+		cmd = cmd[0]
+		param = param.replace(cmd, '').trim()
+		b = cmd.match(/([^/]*)\.js/)
+		b = b ? b[1] : cmd
+		if (abc2svg[b])
+			abc2svg[b](self, param)	// set the Abc instance and argument
+		return
 	case "map":
 		get_map(param)
 		return
@@ -21917,9 +21977,11 @@ function get_staves(cmd, parm) {
 		if (p_voice.time > maxtime)
 			maxtime = p_voice.time
 	}
-	if (staves_found < 0) {				// if first %%staves
+	if (!maxtime) {				// if %%staves at start of tune
 		par_sy.staves = []
 		par_sy.voices = []
+		if (!a_vf)
+			return syntax(1, errs.bad_val, '%%' + cmd)
 	} else {
 //		if (nv)					// if many voices
 		self.voice_adj(1)
@@ -22874,9 +22936,16 @@ function get_lyrics(p, cont) {
 			i++
 			continue
 		case '-':
+			if (ly?.ln != 3)
+				word = '-', ln = 2
+			else
+				word = '_', ln = 3
+			break
 		case '_':
-			word = p[i]
-			ln = p[i] == '-' ? 2 : 3	// line continuation
+			if (ly && ly.ln && ly.ln != 3)
+				word = '-', ln = 2
+			else
+				word = '_', ln = 3
 			break
 		case '*':
 			word = ""
@@ -22993,14 +23062,14 @@ function ly_set(s) {
 		if (!ly)
 			continue
 		gene.curfont = ly.font
-		ly.t = str2svg(ly.t)
-		p = ly.t.replace(/<[^>]*>/g, '')	// remove the XML tags
+		p = ly.t
+		ly.wh = strwh(p)
 		if (ly.ln >= 2) {
 			ly.shift = 0
 			continue
 		}
 		spw = cwid(' ') * ly.font.swfac
-		w = ly.t.wh[0]
+		w = ly.wh[0]
 		r = abc2svg.lypre.exec(p)
 		if (s.type == C.GRACE) {		// %%graceword
 			shift = s.wl
@@ -23078,19 +23147,58 @@ function ly_set(s) {
 /* -- draw the lyrics under (or above) notes -- */
 /* (the staves are not yet defined) */
 function draw_lyric_line(p_voice, j, y) {
-	var	p, lastx, w, s, s2, ly, lyl, ln,
-		hyflag, lflag, x0, shift
+    var	p, lastx, w, s, ly, lyl, ln,
+	lflag, x0, shift,
+	hyflag = {}
 
-	if (p_voice.hy_st & (1 << j)) {
-		hyflag = true;
-		p_voice.hy_st &= ~(1 << j)
-	}
+	// output a syllable
+	function out_ly(s, w, p) {
+		if (s.a_ly
+		 && (user.anno_start || user.anno_stop)) {
+		    var	s2 = {
+				p_v: s.p_v,
+				st: s.st,
+				istart: s.a_ly[j].istart,
+				iend: s.a_ly[j].iend,
+				ts_prev: s,
+				ts_next: s.ts_next,
+				x: lastx,
+				y: y,
+				ymn: y,
+				ymx: y + gene.curfont.size,
+				wl: 0,
+				wr: w
+			}
+			anno_start(s2, 'lyrics')
+		}
+		xy_str(lastx, y, p)
+		if (s2)
+			anno_stop(s2, 'lyrics')
+	} // out_ly()
+
+	function set_hy(v) {
+		if (v) {
+			hyflag.s = s
+			hyflag.p = p
+			hyflag.w = w
+		} else {
+			hyflag.s = null
+			hyflag.p = ""
+			hyflag.w = 0
+		}
+	} // set_hy()
+
 	for (s = p_voice.sym; /*s*/; s = s.next)
 		if (s.type != C.CLEF
 		 && s.type != C.KEY && s.type != C.METER)
 			break
-	lastx = s.prev ? s.prev.x : tsfirst.x;
-	x0 = 0
+	x0 = s.x - s.wl - 10
+	lastx = 0
+	set_hy(0)
+	if (p_voice.hy_st & (1 << j)) {
+		hyflag.s = s
+		p_voice.hy_st &= ~(1 << j)
+	}
 	for ( ; s; s = s.next) {
 		if (s.a_ly)
 			ly = s.a_ly[j]
@@ -23101,8 +23209,8 @@ function draw_lyric_line(p_voice, j, y) {
 			case C.REST:
 			case C.MREST:
 				if (lflag) {
-					out_wln(lastx + 3, y, x0 - lastx);
-					lflag = false;
+					out_wln(lflag, y, x0 - lflag)
+					lflag = 0
 					lastx = s.x + s.wr
 				}
 			}
@@ -23112,60 +23220,53 @@ function draw_lyric_line(p_voice, j, y) {
 			gene.curfont = ly.font
 		p = ly.t;
 		ln = ly.ln || 0
-		w = p.wh[0]
+		w = ly.wh[0]
 		shift = ly.shift
-		if (hyflag) {
-			if (ln == 3) {			// '_'
-				ln = 2
-			} else if (ln < 2) {		// not '-'
-			    if (s.x - shift - lastx > gene.curfont.swfac * .4)
-				out_hyph(lastx, y, s.x - shift - lastx);
-				hyflag = false;
-				lastx = s.x + s.wr
-			}
-		}
-		if (lflag
-		 && ln != 3) {				// not '_'
-			out_wln(lastx + 3, y, x0 - lastx + 3);
-			lflag = false;
-			lastx = s.x + s.wr
-		}
-		if (ln >= 2) {				// '-' or '_'
-			if (x0 == 0 && lastx > s.x - 18)
-				lastx = s.x - 18
-			if (ln == 2)			// '-'
-				hyflag = true
-			else
-				lflag = true;
-			x0 = s.x - shift
+
+		if (ln == 3) {				// if '_'
+			if (!lflag)
+				lflag = x0 + 3
+			x0 = s.x - shift + w
 			continue
 		}
-		x0 = s.x - shift;
-		if (ln)					// '-' at end
-			hyflag = true
-		if (user.anno_start || user.anno_stop) {
-			s2 = {
-				p_v: s.p_v,
-				st: s.st,
-				istart: ly.istart,
-				iend: ly.iend,
-				ts_prev: s,
-				ts_next: s.ts_next,
-				x: x0,
-				y: y,
-				ymn: y,
-				ymx: y + gene.curfont.size,
-				wl: 0,
-				wr: w
-			}
-			anno_start(s2, 'lyrics')
+		if (lflag) {
+			out_wln(lflag, y, x0 - lflag)
+			lflag = 0
 		}
-		xy_str(x0, y, p)
-		anno_stop(s2, 'lyrics')
-		lastx = x0 + w
+		x0 = s.x - shift
+		if (ln == 1				// first '-'
+		 && !hyflag.s) {
+			set_hy(1)
+			lastx = x0
+			continue
+		}
+		if (ln == 2)				// more '-'
+			continue
+		if (hyflag.s) {
+			if (x0 - hyflag.w - lastx > gene.curfont.swfac) {
+				if (!lastx)
+					lastx = x0 - ly.font.size
+				out_ly(hyflag.s, hyflag.w, hyflag.p)
+				lastx += hyflag.w
+				out_hyph(lastx, y, x0 - lastx)
+				set_hy(0)
+				lastx = x0
+			} else {
+				x0 = lastx
+			}
+			p = hyflag.p + p		// concatenate
+			w += hyflag.w
+			set_hy(ln)			// (set or reset)
+			if (ln)
+				continue
+		}
+		lastx = x0
+		out_ly(s, w, p)
+		x0 += w
 	}
-	if (hyflag) {
-		hyflag = false;
+	if (hyflag.s) {
+		out_ly(hyflag.s, hyflag.w, hyflag.p)
+		lastx += hyflag.w
 		x0 = realwidth - 10
 		if (x0 < lastx + 10)
 			x0 = lastx + 10;
@@ -23175,24 +23276,21 @@ function draw_lyric_line(p_voice, j, y) {
 	}
 
 	/* see if any underscore in the next line */
-	for (p_voice.s_next; s; s = s.next) {
+    if (lflag) {
+	for (s = p_voice.s_next; s; s = s.next) {
 		if (s.type == C.NOTE) {
 			if (!s.a_ly)
 				break
 			ly = s.a_ly[j]
 			if (ly && ly.ln == 3) {		 // '_'
-				lflag = true;
-				x0 = realwidth - 15
-				if (x0 < lastx + 12)
-					x0 = lastx + 12
+				if (x0 < realwidth - 15)
+					x0 = realwidth - 15
 			}
 			break
 		}
 	}
-	if (lflag) {
-		out_wln(lastx + 3, y, x0 - lastx + 3);
-		lflag = false
-	}
+	out_wln(lflag, y, x0 - lflag)
+    }
 }
 
 function draw_lyrics(p_voice, nly, a_h, y,
@@ -23265,7 +23363,7 @@ function draw_all_lyrics() {
 					ly = a_ly[i]
 					if (ly) {
 						x -= ly.shift;
-						w = ly.t.wh[0]
+						w = ly.wh[0]
 						break
 					}
 				}
@@ -23282,8 +23380,8 @@ function draw_all_lyrics() {
 					if (!ly)
 						continue
 					if (!h_tb[v][i]
-					 || ly.t.wh[1] > h_tb[v][i])
-						h_tb[v][i] = ly.t.wh[1]
+					 || ly.wh[1] > h_tb[v][i])
+						h_tb[v][i] = ly.wh[1]
 				}
 			}
 		} else {
@@ -23936,6 +24034,8 @@ Abc.prototype.deco_put = function(nm, s) {
 	a_dcn.push(nm)
 	deco_cnv(s)
 }
+Abc.prototype.deco_val_tb = deco_val_tb
+Abc.prototype.decos = decos
 Abc.prototype.defs_add = defs_add
 Abc.prototype.dh_put = function(nm, s, nt) {
 	a_dcn.push(nm)
@@ -24067,6 +24167,7 @@ abc2svg.modules = {
 	grid2: {},
 	jazzchord: {},
 	jianpu: {},
+	loadjs: {},				// dummy module
 	mdnn: {},
 	MIDI: {},
 	nns: {},
@@ -24113,7 +24214,7 @@ abc2svg.modules = {
 		}
 
 		// test if some keyword in the file
-	    var	m, i, fn,
+	    var	m, i, j, k, fn,
 		nreq_i = this.nreq,
 		ls = file.match(/(%%|I:).+?\b/g)
 
@@ -24125,6 +24226,32 @@ abc2svg.modules = {
 
 		for (i = 0; i < ls.length; i++) {
 			fn = ls[i].replace(/\n?(%%|I:)/, '')
+
+			if (fn == "loadjs") {	// load any JS file
+				k = 0
+				while (1) {
+					j = file.indexOf("%%loadjs ", k)
+					if (j < 0)
+						break
+					k = file.indexOf("\n", j)
+					fn = file.slice(j + 9, k)
+					j = fn.indexOf('%')
+					if (j > 0)
+						fn = fn.slice(0, j)
+					fn = fn.match(/[^\s]+/)[0]
+					m = fn.match(/([^/]*)\.js/)
+					m = m ? m[1] : fn	// module name
+					if (typeof abc2svg[m] != "function"
+							// if not statically loaded
+					 && !abc2svg.modules[m]) {
+						abc2svg.modules[m] = {loaded: 1}
+						this.nreq++
+						abc2svg.loadjs(fn, load_end)
+					}
+				}
+				continue
+			}
+
 			m = abc2svg.modules[fn]
 			if (!m || m.loaded)
 				continue
@@ -24146,4 +24273,4 @@ abc2svg.modules = {
 		return this.nreq == nreq_i
 	}
 } // modules
-abc2svg.version="v1.23.2";abc2svg.vdate="2026-06-10"
+abc2svg.version="v1.23.6";abc2svg.vdate="2026-09-23"

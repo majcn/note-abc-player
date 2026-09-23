@@ -1,4 +1,4 @@
-//~ xmlplay_lib, Revision: 184, Copyright (C) 2016-2025: Willem Vree, contributions Stéphane David.
+//~ xmlplay_lib, Revision: 190, Copyright (C) 2016-2025: Willem Vree, contributions Stéphane David.
 //~ This program is free software; you can redistribute it and/or modify it under the terms of the
 //~ GNU General Public License as published by the Free Software Foundation; either version 2 of
 //~ the License, or (at your option) any later version.
@@ -35,6 +35,7 @@ var audioCtx, timer1, gAccTime, tmpElm;
 var rolElm;         // de stippellijn
 var metRects = 0;   // all notes marked with svg-rects
 var putMarkExt;
+var startMaat = 0;  // begin maat (opt.tomsr)
 
 function doModel (abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) {
     var abc2svg;
@@ -109,13 +110,18 @@ function doModel (abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) 
         function checkDecos (ts) {
             var has_orn = '';
             if (ts.a_dd) {
-                for (var r of ts.a_dd) { // check all deco's
-                    var vol = dyntab [r.name];  // volume of deco (if defined)
-                    if (vol) {          // set all voices of staff to volume
-                        gStaves [ts.st].forEach (function (vce) {
-                            vceVol [vce] = vol; // array of current volumes
-                        });
+                for (var r of ts.a_dd) {    // check all deco's
+                    var vol = dyntab [r.name];      // volume of deco (if defined)
+                    if (vol) {
+                        if (opt.dynvce) {           // set the current voice to volume
+                            vceVol [ts.v] = vol;    // vceVol == array of current volumes
+                        } else {                    // set all voices of staff to volume
+                            gStaves [ts.st].forEach (function (vce) {
+                                vceVol [vce] = vol;
+                            });
+                        }
                     }
+
                     if (ornaments.includes (r.name)) has_orn = r.name;
                     if (r.name == 'swing') swingOn = 1;
                     if (r.name == 'swingoff') swingOn = 0;
@@ -216,7 +222,7 @@ function doModel (abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) 
                         p = n.pit + 19;             // C -> 35 == 5 * 7, global step
                         v = ts.v;                   // voice number 0..
                         vid = ts.p_v.id;            // voice ID
-                        vol = vceVol [v] || 60;     // 60 == !p! if no volume
+                        vol = vceVol [v] || 80;     // 80 == !mf! if no volume
                         var ornmnt = has_orn ? compute_ornament (has_orn, n, p, v, ard) : {};
                         [mn, cent] = noot2mid (n, p, v);
                         //~ if (n.midi) mn = n.midi;     // ABC toonhoogte
@@ -285,11 +291,11 @@ function doModel (abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkExt_p) 
             }
             return deNoten
         }
-        const ornaments = ['trill','lowermordent','uppermordent','//','arpeggio'];
+        const ornaments = ['trill','lowermordent','uppermordent','//','arpeggio','dot','>'];
         var acctab = {}, curKey = {}, tied = {}, voorslag = {};
         var accTrans = {'-2':-2, '-1':-1, 0:0, 1:1, 2:2, 3:0};
         var diamap = '0,1-,1,1+,2,3,3,4,4,5,6,6+,7,8-,8,8+,9,10,10,11,11,12,13,13+,14'.split (',')
-        var dyntab = {'ppp':30, 'pp':45, 'p':60, 'mp':75, 'mf':90, 'f':105, 'ff':120, 'fff':127}
+        var dyntab = {'ppp':16, 'pp':33, 'p':49, 'mp':64, 'mf':80, 'f':96, 'ff':112, 'fff':126}
         var vceVol = [], vol;
         var mtr = voice_tb [0].meter.a_meter;
         var gBeats = mtr.length ? parseInt (mtr [0].top) : 4;
@@ -461,7 +467,7 @@ function doLayout (abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlockListe
     if (fplay) {
         isvgAligned = -1;   // de eerste keer altijd uitlijnen 
         iSeq = 0;       // nieuw stuk, of nieuw fragment in _emb-versie
-        mkNtsSeq ();    // => putMarkLoc => alignSystem
+        mkNtsSeq (opt.tomsr);   // => putMarkLoc => alignSystem
     }
     document.addEventListener ('scrollend', eindRol); // eindRol is een statische functie => wordt maar één keer toegevoegd
 }
@@ -478,14 +484,16 @@ function setScale () {
     gScale = ((w_vbx / scale) / w_svg);                 // pixels -> svg-coors
 }
 
-function mkNtsSeq () {
+function mkNtsSeq (startMaat) {
     var curNoteTime  = iSeq > 0 && ntsSeq [iSeq] ? ntsSeq [iSeq].t : 0;
     var repcnt = 1, offset = 0, repstart = 0, reptime = 0, volta = 0, tvolta = 0, i, n;
     ntsSeq = [];    // schoonmaken voor emb-versie
     barTimes = {};  // idem, want wordt hier gevuld.
+    var allBars = [], barIxs = [];
     for (i = 0; i < allNotes.length; ++i) {
         n = allNotes [i];
         if (n.bt && n.v == 0) {
+            allBars.push (n.t + offset);
             if (n.t in barTimes && n.bt [0] == ':') continue;  // herhaling maar 1 keer uitvoeren (bij herhaling in herhaling)
             if (repcnt == 1 && n.bt [0] == ':' && n.t > reptime) { i = repstart - 1; repcnt = 2; offset += n.t - reptime; continue; }
             if (repcnt == 2 && n.bt [0] == ':' && n.t > reptime) { repcnt = 1; }
@@ -494,9 +502,18 @@ function mkNtsSeq () {
             if (repcnt == 2 && n.tx == '1') { volta = 1; tvolta = n.t }
         };
         if (volta) continue;
-        if (n.bt) { barTimes [n.t] = 1; continue; } // maattijden zonder herhalingsoffset
+        if (n.bt) { 
+            barTimes [n.t] = n.t + offset;;  // maattijd zonder herhalingsoffset => laatste tijd bij deze de maat
+            continue;
+        }
         var ntpos = metRects ? n.ix : ntsPos [n.ix]
+        barIxs.push (allBars.length)
         ntsSeq.push ({ t: n.t + offset, xy: ntpos, ns: n.ns, vce: n.v, inv: n.inv, tmp: n.tmp });
+    }
+    var maatTijden = Object.keys (barTimes);
+    if (curNoteTime == 0 && startMaat > 0) {    // eerste keer als opt.tomsr gegeven is (startMaat)
+        var mt = maatTijden [startMaat - 1];
+        curNoteTime = barTimes [mt];        // laatste noottijd bij de startMaat
     }
     iSeq = 0;
     for (; iSeq < ntsSeq.length; ++iSeq) {  // zet iSeq zo richt mogelijk bij laatste cursor positie
@@ -505,6 +522,7 @@ function mkNtsSeq () {
     }
     if (iSeq == ntsSeq.length) iSeq -= 1;
     putMarkLoc (ntsSeq [iSeq]);
+    return [allBars, barIxs];
 }
 
 function rolRegel (e, isvg) {   // rol regel isvg tot aan de stippellijn
@@ -782,9 +800,8 @@ function addElms () {
     rolElm.id = 'rollijn'
     document.body.appendChild (rolElm);
     rolElm.addEventListener ('pointerdown', schuifLijn);
-    var dlg = document.createElement ('div');
+    var dlg = document.createElement ('dialog');
     dlg.id = 'comp';
-    dlg.classList.add ('dlog');
     document.body.appendChild (dlg);
 }
 

@@ -1,4 +1,4 @@
-//~ xmlplay_syn, Revision: 184, Copyright (C) 2016-2025: Willem Vree, contributions Stéphane David.
+//~ xmlplay_syn, Revision: 190, Copyright (C) 2016-2025: Willem Vree, contributions Stéphane David.
 //~ This program is free software; you can redistribute it and/or modify it under the terms of the
 //~ GNU General Public License as published by the Free Software Foundation; either version 2 of
 //~ the License, or (at your option) any later version.
@@ -8,6 +8,7 @@
 
 // variables shared with xmlplay.js
 var audioCtx;
+var destNode;
 var opt;
 var midiVol;
 var midiPan;
@@ -22,8 +23,9 @@ var instMap;
 var logerr;
 function setSynVars ( audioCtx_p, opt_p, midiVol_p, midiPan_p, midiInstr_p, midiUsedArr_p,
                       withRT_p, hasPan_p, hasLFO_p, hasFlt_p, hasVCF_p, instMap_p,
-                      logerr_p) {
+                      logerr_p, destNode_p) {
     audioCtx = audioCtx_p;
+    destNode = destNode_p || audioCtx.destination;
     opt = opt_p;
     midiVol = midiVol_p;
     midiPan = midiPan_p;
@@ -110,7 +112,12 @@ function speel (tijd, inst, noot, cent, dur, tf, vce, velo, orn) {
         }
         break;
     default:
-        if (noot.dur <= 192) tf *= 1.3  // legato effect voor <= 1/8
+        if (orn.naam == '>') {
+            velo *= 1.4;    // 3 dB
+            if (velo > 127) velo = 127;
+        }
+        if (orn.naam == 'dot' && dur > 96)  dur -= dur / 3;   //staccato
+        else if (noot.dur <= 192) tf *= 1.3  // legato effect voor <= 1/8
         else  tf *= 1.1                 // minder voor > 1/8
         speelhulp (tijd, inst, noot, cent, dur * tf, vce, velo)
     }
@@ -158,7 +165,7 @@ function neer (midiNum, velo, time, vce) {
     }
     source.connect (panNode || gainNode);    // we doen de pan node voor de gain node!!
     if (panNode) panNode.connect (gainNode); // anders werkt de gain niet in FF
-    gainNode.connect (audioCtx.destination); // verbind source met de sound kaart
+    gainNode.connect (destNode); // verbind source met de sound kaart
     source.start (time);
     liggend [midiNum] = [source, gainNode, vol];
 }
@@ -278,8 +285,8 @@ function opneer (instr, key, cent, t, dur, vce, velo) {
     if (wf) {   o.connect (f); f.connect (panNode || g); }
     else        o.connect (panNode || g);       // we doen de pan node voor de gain node!!
     if (panNode) panNode.connect (g);           // anders werkt de gain niet in FF
-    if (wl) {   g.connect (g2); g2.connect (audioCtx.destination); }
-    else        g.connect (audioCtx.destination);
+    if (wl) {   g.connect (g2); g2.connect (destNode); }
+    else        g.connect (destNode);
 
     o.start (t);
     if (wl) lfo.start (t + parm.lfodel);
