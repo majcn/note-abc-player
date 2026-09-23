@@ -22,6 +22,22 @@
 
   let editing = $state(true);
 
+  // Positioned engine messages from the last render, marked in the editor.
+  let errors = $state.raw<{ line: number; col: number; message: string }[]>([]);
+
+  // Pull positioned messages out of the joined engine text. Only lines prefixed
+  // with the song's file name ("abc2svg:7:4 Error: ...") point into the user's
+  // text — "fmt:" ones are in common.abc, and unpositioned ones have no anchor.
+  // Line numbers are off when preprocessAbc prepends/rewrites text
+  // (temperamentequal, percmap); we accept that. Line/col are 1-based.
+  function parseErrors(msg: string) {
+    return Array.from(msg.matchAll(/^abc2svg:(\d+):(\d+) (.*)$/gm), (m) => ({
+      line: Number(m[1]),
+      col: Number(m[2]),
+      message: m[3]
+    }));
+  }
+
   // Width of the left editor pane, in px. Dragging the divider updates it; the
   // sheet pane takes the remaining width. Persisted across reloads.
   const WIDTH_KEY = 'abc-editor-width';
@@ -158,6 +174,7 @@
       <CodeEditor
         bind:this={editor}
         value={abcText}
+        {errors}
         onChange={(v) => (abcText = v)}
         onCursor={(offset) => player?.highlightSource(offset)}
         class="h-full w-full"
@@ -180,7 +197,12 @@
     `flex` here propagates the flex context SongPlayer's sheet div (flex-1) relies on.
   -->
   <div class={['min-w-0 flex-1 flex overflow-hidden', editing && 'max-md:hidden']}>
-    <SongPlayer bind:this={player} abc={abcText} onNoteClick={jumpToNote} />
+    <SongPlayer
+      bind:this={player}
+      abc={abcText}
+      onNoteClick={jumpToNote}
+      onError={(msg) => (errors = parseErrors(msg))}
+    />
   </div>
 </div>
 

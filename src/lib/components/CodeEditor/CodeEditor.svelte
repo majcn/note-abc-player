@@ -12,18 +12,21 @@
   } from '@codemirror/view';
   import { bracketMatching } from '@codemirror/language';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+  import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
   import { abc } from '$lib/codemirror/abc';
 
   // `value` is the initial document only (read once at mount); edits flow out via
   // onChange. No two-way binding — the editor owns its text after mount.
+  // `errors` are engine messages shown as lint diagnostics (1-based line/col).
   type Props = {
     value?: string;
     class?: string;
+    errors?: { line: number; col: number; message: string }[];
     onChange?: (value: string) => void;
     onCursor?: (offset: number) => void;
   };
 
-  let { value = '', class: className = '', onChange, onCursor }: Props = $props();
+  let { value = '', class: className = '', errors = [], onChange, onCursor }: Props = $props();
 
   let view: EditorView | undefined;
 
@@ -85,6 +88,7 @@
           EditorView.lineWrapping,
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           abc(),
+          lintGutter(),
           theme,
           // Report edits and cursor moves so the parent can re-render the sheet
           // and highlight the matching note.
@@ -98,6 +102,22 @@
 
     return () => view?.destroy();
   };
+
+  // Push engine errors into the editor. Positions refer to the text the sheet
+  // last rendered (debounced), so clamp to the current doc; CodeMirror then maps
+  // them through further edits. Each marks one char (the last one if the column
+  // is past the line end).
+  $effect(() => {
+    if (!view) return;
+    const doc = view.state.doc;
+    const diagnostics: Diagnostic[] = errors.map((e) => {
+      const line = doc.line(Math.max(1, Math.min(e.line, doc.lines)));
+      const from = Math.max(line.from, Math.min(line.from + e.col - 1, line.to - 1));
+      const to = Math.min(from + 1, line.to);
+      return { from, to, severity: 'error', message: e.message };
+    });
+    view.dispatch(setDiagnostics(view.state, diagnostics));
+  });
 
   // Select the note token at a source offset, scroll it into view, and focus the
   // editor. Called by the parent when a note in the rendered sheet is clicked —

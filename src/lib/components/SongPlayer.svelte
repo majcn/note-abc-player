@@ -8,9 +8,15 @@
   // toast, plus the player state they exchange. Both the read-only SongView and
   // the editable SongEditor wrap this; the editor additionally drives `abc` from
   // its buffer and listens for note clicks.
-  type Props = { abc: string; onNoteClick?: (offset: number) => void };
+  // onError reports the raw engine messages after each render ('' = clean),
+  // independent of the toast — dismissing the toast doesn't clear them.
+  type Props = {
+    abc: string;
+    onNoteClick?: (offset: number) => void;
+    onError?: (msg: string) => void;
+  };
 
-  let { abc, onNoteClick }: Props = $props();
+  let { abc, onNoteClick, onError }: Props = $props();
 
   let sheet = $state<{ highlightSource: (offset: number) => void }>();
   let errorMsg = $state<string | null>(null);
@@ -45,8 +51,14 @@
       onLoad={(initial) => (voices = initial)}
       onBpmChange={(v) => (bpm = v)}
       onPlayingChange={(v) => (isPlaying = v)}
-      onError={(msg) => (errorMsg = msg)}
-      onErrorClear={() => (errorMsg = null)}
+      onError={(msg) => {
+        errorMsg = msg;
+        onError?.(msg);
+      }}
+      onErrorClear={() => {
+        errorMsg = null;
+        onError?.('');
+      }}
       {onNoteClick}
     />
   </svelte:boundary>
