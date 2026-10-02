@@ -11,6 +11,7 @@
 
   type Props = {
     abc: string;
+    transpose: number;
     voices: number[];
     speed: number;
     isPlaying: boolean;
@@ -24,6 +25,7 @@
 
   let {
     abc,
+    transpose,
     voices,
     speed,
     isPlaying,
@@ -57,7 +59,8 @@
     burak: 0,
     nosm: 0,
     noDash: 0,
-    arpmaxdur: 36
+    arpmaxdur: 36,
+    transpose: 0
   };
 
   let renderErrored = false;
@@ -136,9 +139,10 @@
   // playing across a re-render would read a stale sequence. untrack so the
   // reactive reads here (isPlaying via the engine, state writes) don't widen the
   // render effect's dependencies.
-  function renderNow(text: string) {
+  function renderNow(text: string, semitones: number) {
     untrack(() => {
       renderErrored = false;
+      opt.transpose = semitones;
       try {
         mLib.stop_markeer();
         onPlayingChange?.(false);
@@ -246,19 +250,23 @@
 
     if (warnings.length) onError?.('Your browser does not support:\n' + warnings.join('\n'));
 
-    // Render the score reactively. First render is immediate; subsequent abc
-    // changes (live editing) are debounced. Lives inside $effect.root so it
-    // only starts after this attachment has set up abcElm and cmpElm.
+    // Render the score reactively. First render and transpose changes are
+    // immediate; subsequent abc changes (live editing) are debounced. Lives
+    // inside $effect.root so it only starts after this attachment has set up
+    // abcElm and cmpElm.
     let firstRender = true;
+    let lastTranspose = 0;
     const stopRenderEffect = $effect.root(() => {
       $effect(() => {
         const text = abc;
-        if (firstRender) {
+        const semitones = transpose;
+        if (firstRender || semitones !== lastTranspose) {
           firstRender = false;
-          renderNow(text);
+          lastTranspose = semitones;
+          renderNow(text, semitones);
           return;
         }
-        const timer = setTimeout(() => renderNow(text), renderDebounceMs);
+        const timer = setTimeout(() => renderNow(text, semitones), renderDebounceMs);
         return () => clearTimeout(timer);
       });
     });

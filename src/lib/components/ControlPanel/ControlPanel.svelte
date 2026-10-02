@@ -12,8 +12,10 @@
     speedMin?: number;
     speedMax?: number;
     speedStep?: number;
+    transpose: number;
     onVolumeChange: (i: number, v: number) => void;
     onSpeedChange: (v: number) => void;
+    onTransposeChange: (v: number) => void;
     onRequestPlay: (isPlaying: boolean) => void;
   }
 
@@ -25,8 +27,10 @@
     speedMin = 0.1,
     speedMax = 3,
     speedStep = 0.1,
+    transpose,
     onVolumeChange,
     onSpeedChange,
+    onTransposeChange,
     onRequestPlay
   }: Props = $props();
 
@@ -118,5 +122,15 @@
       </button>
     </div>
   </div>
-  <ExpandedPanel {open} {voices} {speed} {speedMin} {speedMax} {onSpeedChange} {onVolumeChange} />
+  <ExpandedPanel
+    {open}
+    {voices}
+    {speed}
+    {speedMin}
+    {speedMax}
+    {transpose}
+    {onSpeedChange}
+    {onVolumeChange}
+    {onTransposeChange}
+  />
 </div>

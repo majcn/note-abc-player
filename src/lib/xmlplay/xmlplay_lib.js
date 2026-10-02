@@ -70,6 +70,7 @@ function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkEx
     var swingOn = 0;    // swing aan voor kwartnoten
     var gTrans = [];
     var edo53 = 0;      // tuning: equal division of octave by 53
+    var transp = 0;
 
     function getStaves (voice_tb) {
         var xs = [];
@@ -185,7 +186,7 @@ function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkEx
             mnf += acctab [v][p];       // temporary alterations, key-accidentals
             mn = Math.round (mnf)
             cent = 100 * (mnf - mn)
-            return [mn, cent]
+            return [mn + transp, cent]  // shift after cent, else detune cancels it
         }
         function compute_ornament (has_orn, n, p, v, arpeg_duur) {
             var nootop = noot2mid (n, p + 1, v);
@@ -235,6 +236,7 @@ function doModel (Abc, abctxt, opt, gTempo=120, debug, mapTab, logerr, putMarkEx
                 case NOTE:
                     var instr = midiInstr [ts.v];   // from %%MIDI program instr
                     if (ts.p_v.clef.clef_type == 'p') instr += 128;  // percussion
+                    transp = instr >= 128 ? 0 : opt.transpose | 0;  // drums: MIDI number is the sound, not a pitch
                     var has_orn = checkDecos (ts);
                     var tijd = ts.time; 
                     var duur = ts.dur;
@@ -484,7 +486,7 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
         'get_abcmodel': null
     }
     abc2svg = new Abc (user);
-    abc2svg.tosvg ('fmt', fmtPrelude);
+    abc2svg.tosvg ('fmt', fmtPrelude + (opt.transpose ? '\n%%transpose ' + opt.transpose : ''));
     abc2svg.tosvg ('abc2svg', abctxt);
     if (errtxt == '') errtxt = 'no error';
     logerr (errtxt.trim ());

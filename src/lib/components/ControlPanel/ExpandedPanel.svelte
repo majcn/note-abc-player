@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { TRANSPOSE_MAX } from '$lib/transposeParam.svelte';
+
   const VOICE_NAMES = ['Prvi glas', 'Drugi glas', 'Tretji glas', 'Četrti glas'];
 
   interface Props {
@@ -7,11 +9,16 @@
     speed: number;
     speedMin: number;
     speedMax: number;
+    transpose: number;
     onVolumeChange: (i: number, val: number) => void;
     onSpeedChange: (v: number) => void;
+    onTransposeChange: (v: number) => void;
   }
 
-  let { open, voices, speed, speedMin, speedMax, onVolumeChange, onSpeedChange }: Props = $props();
+  let { open, voices, speed, speedMin, speedMax, transpose, onVolumeChange, onSpeedChange, onTransposeChange }: Props =
+    $props();
+
+  let transposeLabel = $derived(transpose > 0 ? `+${transpose}` : transpose < 0 ? `−${-transpose}` : '0');
 
   // Math.round needed: IEEE 754 float imprecision, e.g. 1.12 * 100 = 112.99999999999999
   let speedPercentage = $derived(Math.round(speed * 100));
@@ -28,6 +35,9 @@
   const slider =
     'flex-1 cursor-pointer accent-panel-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent';
   const pct = 'w-[54px] shrink-0 text-right text-xs text-panel-text-dim';
+  // TempoCompact's bump button style, minus max-md:hidden.
+  const bumpBtn =
+    'flex size-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full border border-panel-control-border bg-panel-control-bg leading-none text-panel-text/85 transition select-none not-disabled:hover:bg-panel-control-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent disabled:cursor-not-allowed disabled:opacity-40';
 </script>
 
 <!--
@@ -78,6 +88,38 @@
           oninput={(e) => onSpeedChange(e.currentTarget.valueAsNumber / 100)}
         />
         <span class={pct}>{speedPercentage} %</span>
+      </div>
+      <div class={row}>
+        <span class={label}>Transpozicija</span>
+        <div class="flex flex-1 items-center justify-center gap-[5px]">
+          <button
+            type="button"
+            class={bumpBtn}
+            aria-label="Transpose down"
+            disabled={transpose <= -TRANSPOSE_MAX}
+            onclick={() => onTransposeChange(transpose - 1)}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            class="min-w-14 cursor-pointer rounded-sm text-center text-xs text-panel-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent"
+            aria-label="Reset transpose"
+            onclick={() => onTransposeChange(0)}
+          >
+            {transposeLabel}
+          </button>
+          <button
+            type="button"
+            class={bumpBtn}
+            aria-label="Transpose up"
+            disabled={transpose >= TRANSPOSE_MAX}
+            onclick={() => onTransposeChange(transpose + 1)}
+          >
+            +
+          </button>
+        </div>
+        <span class={pct}>poltoni</span>
       </div>
     </div>
   </div>

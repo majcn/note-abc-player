@@ -14,9 +14,10 @@
     abc: string;
     onNoteClick?: (offset: number) => void;
     onError?: (msg: string) => void;
+    transpose?: number;
   };
 
-  let { abc, onNoteClick, onError }: Props = $props();
+  let { abc, onNoteClick, onError, transpose = $bindable(0) }: Props = $props();
 
   let sheet = $state<{ highlightSource: (offset: number) => void }>();
   let errorMsg = $state<string | null>(null);
@@ -45,6 +46,7 @@
     <MusicSheet
       bind:this={sheet}
       {abc}
+      {transpose}
       {voices}
       {speed}
       {isPlaying}
@@ -70,8 +72,10 @@
     {isPlaying}
     {bpm}
     {speed}
+    {transpose}
     onVolumeChange={(i, v) => (voices[i] = v)}
     onSpeedChange={(v) => (speed = v)}
+    onTransposeChange={(v) => (transpose = v)}
     onRequestPlay={(v) => (isPlaying = v)}
   />
 </div>

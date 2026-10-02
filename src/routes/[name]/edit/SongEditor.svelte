@@ -5,6 +5,7 @@
   // reached via the edit route, so route-level code-splitting already keeps it
   // out of the read-only route's bundle. No dynamic import needed.
   import { CodeEditor } from '$lib/components/CodeEditor';
+  import { transposeParam } from '$lib/transposeParam.svelte';
 
   let { abc }: { abc: string } = $props();
 
@@ -21,6 +22,8 @@
   let abcText = $state(abc);
 
   let editing = $state(true);
+
+  const transpose = transposeParam();
 
   // Positioned engine messages from the last render, marked in the editor.
   let errors = $state.raw<{ line: number; col: number; message: string }[]>([]);
@@ -200,6 +203,7 @@
     <SongPlayer
       bind:this={player}
       abc={abcText}
+      bind:transpose={transpose.value}
       onNoteClick={jumpToNote}
       onError={(msg) => (errors = parseErrors(msg))}
     />

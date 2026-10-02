@@ -2,10 +2,13 @@
   import type { PageProps } from './$types';
   import { PrintSheet } from '$lib/components/PrintSheet';
   import { ErrorToast } from '$lib/components/ErrorToast';
+  import { page } from '$app/state';
+  import { parseTranspose } from '$lib/transposeParam.svelte';
 
   let { data }: PageProps = $props();
 
   let errorMsg = $state<string | null>(null);
+  let transpose = $derived(parseTranspose(page.url.searchParams.get('t')));
 </script>
 
 <svelte:head><title>{data.title} (Print mode)</title></svelte:head>
@@ -38,8 +41,8 @@
 -->
 <div class="paper-wrap flex justify-center bg-neutral-100 p-4 print:block print:bg-white print:p-0">
   <div class="paper w-[210mm] bg-white p-[12mm] shadow-md print:w-auto print:p-0 print:shadow-none">
-    {#key data.name}
-      <PrintSheet abc={data.abc} onError={(msg) => (errorMsg = msg)} />
+    {#key `${data.name}:${transpose}`}
+      <PrintSheet abc={data.abc} {transpose} onError={(msg) => (errorMsg = msg)} />
     {/key}
   </div>
 </div>

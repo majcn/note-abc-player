@@ -11,6 +11,7 @@ export interface Opt {
   nosm: number;
   noDash: number;
   arpmaxdur: number;
+  transpose?: number; // semitones
 }
 
 export type Logerr = (msg: unknown) => void;

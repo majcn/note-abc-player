@@ -7,10 +7,11 @@
 
   type Props = {
     abc: string;
+    transpose?: number;
     onError?: (message: string) => void;
   };
 
-  let { abc, onError }: Props = $props();
+  let { abc, transpose = 0, onError }: Props = $props();
 
   // Static, print-oriented sibling of MusicSheet: it runs the same abc2svg
   // layout engine but only the *visual* half — no AudioContext, no playback
@@ -26,17 +27,18 @@
   // reach here. noDash hides the playhead ruler that addElms() injects.
   const opt = {
     curmsk: 0,
-    sf2url1: "",
-    sf2url2: "",
-    midijsUrl1: "",
-    midijsUrl2: "",
+    sf2url1: '',
+    sf2url2: '',
+    midijsUrl1: '',
+    midijsUrl2: '',
     instTab: {},
     instList: {},
     transMap: {},
     burak: 0,
     nosm: 1,
     noDash: 1,
-    arpmaxdur: 36
+    arpmaxdur: 36,
+    transpose: 0
   };
 
   const logerr = createLogerr((msg) => onError?.(msg));
@@ -63,6 +65,7 @@
       try {
         abc2svg = await loadAbc2svg();
         Abc = abc2svg.Abc;
+        opt.transpose = transpose;
         dolayout(abc);
       } catch (e) {
         onError?.(e instanceof Error ? e.message : String(e));
