@@ -21,6 +21,7 @@
     onError?: (message: string) => void;
     onErrorClear?: () => void;
     onNoteClick?: (offset: number) => void;
+    onNoteDblClick?: (offset: number, x: number, y: number) => void;
   };
 
   let {
@@ -34,7 +35,8 @@
     onPlayingChange,
     onError,
     onErrorClear,
-    onNoteClick
+    onNoteClick,
+    onNoteDblClick
   }: Props = $props();
 
   let abcElm: HTMLDivElement | null = null;
@@ -253,6 +255,7 @@
 
     // Note-click callback: the engine reports offsets into `abc` directly.
     mLib.setOnNoteClick((offset: number) => onNoteClick?.(offset));
+    mLib.setOnNoteDblClick((offset: number, x: number, y: number) => onNoteDblClick?.(offset, x, y));
 
     document.body.addEventListener('keydown', keyDown);
 
@@ -284,6 +287,7 @@
       window.removeEventListener('resize', resizeHandler);
       mLib.setOnTempo(null);
       mLib.setOnNoteClick(null);
+      mLib.setOnNoteDblClick(null);
       document.body.removeEventListener('keydown', keyDown);
     };
   };

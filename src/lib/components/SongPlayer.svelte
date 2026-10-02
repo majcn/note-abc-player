@@ -13,11 +13,12 @@
   type Props = {
     abc: string;
     onNoteClick?: (offset: number) => void;
+    onNoteDblClick?: (offset: number, x: number, y: number) => void;
     onError?: (msg: string) => void;
     transpose?: number;
   };
 
-  let { abc, onNoteClick, onError, transpose = $bindable(0) }: Props = $props();
+  let { abc, onNoteClick, onNoteDblClick, onError, transpose = $bindable(0) }: Props = $props();
 
   let sheet = $state<{ highlightSource: (offset: number) => void }>();
   let errorMsg = $state<string | null>(null);
@@ -62,6 +63,7 @@
         onError?.('');
       }}
       {onNoteClick}
+      {onNoteDblClick}
     />
   </svelte:boundary>
 </div>

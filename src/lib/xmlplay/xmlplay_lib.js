@@ -58,6 +58,9 @@ function dispatchTempoChange (tmp) {
 var onNoteClick = null; // host callback, set via setOnNoteClick
 function setOnNoteClick (fn) { onNoteClick = fn; }   // gets the clicked note's abc source offset (istart)
 
+var onNoteDblClick = null;  // host callback, set via setOnNoteDblClick
+function setOnNoteDblClick (fn) { onNoteDblClick = fn; }    // (istart, clientX, clientY) of the double clicked note
+
 var fmtPrelude = '';
 function setFormat (abcFormatTxt) { fmtPrelude = abcFormatTxt || ''; }
 
@@ -427,10 +430,13 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
         }
     }
 
+    var dblIx = null;   // source offset of the note hit by the last click, for getNoteDbl
+
     function getNote (event) {
         var p, isvg, x, y, w, h, xp, jsvg, i, ys, yp, t, v;
         var playing = get_playing ();
         event.stopPropagation ();
+        dblIx = null;
         jsvg = deSvgs.indexOf (this);
         if (!fplay || jsvg < 0) {
             playBack (0);
@@ -469,10 +475,18 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
                     i += 1
                 }
                 dispatchTempoChange (ntsSeq [iSeq]?.tmp ?? 120);
+                dblIx = ntsSeq [iSeq]?.ix ?? null;
                 onNoteClick?.(ntsSeq [iSeq]?.ix);   // report the clicked note's abc source offset
                 break;
             }
         }
+    }
+
+    // dblclick follows two clicks, so getNote already found the note.
+    function getNoteDbl (event) {
+        event.stopPropagation ();
+        if (dblIx == null) return;      // not on a note
+        onNoteDblClick?.(dblIx, event.clientX, event.clientY);
     }
 
     if (!abctxt) return;
@@ -501,6 +515,7 @@ function doLayout (Abc, abctxt, opt, abc_elm, fplay, abcElm_p, logerr, addUnlock
     setScale ();
     deSvgs.forEach (function (svg) {
         addUnlockListener (svg, 'click', getNote);
+        svg.addEventListener ('dblclick', getNoteDbl);
     });
     if (fplay) {
         isvgAligned = -1;   // de eerste keer altijd uitlijnen 
@@ -867,7 +882,7 @@ function addElms () {
 }
 
 export { 
-    setVolume, getVolumes, setTempo, setOnTempo, setOnNoteClick, setFormat,
+    setVolume, getVolumes, setTempo, setOnTempo, setOnNoteClick, setOnNoteDblClick, setFormat,
     doModel, stf2name, vce2stf, midiVol, midiPan, midiInstr, midiUsedArr,
     doLayout, mkNtsSeq, ntsSeq,
     start_markeer, stop_markeer, iSeq,
