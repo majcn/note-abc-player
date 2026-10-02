@@ -4,13 +4,13 @@ import { defineConfig } from 'vite';
 import adapter from '@sveltejs/adapter-cloudflare';
 
 export default defineConfig({
-    plugins: [
-        tailwindcss(),
-        sveltekit({
-            adapter: adapter(),
-            compilerOptions: {
-                experimental: { async: true }
-            }
-        })
-    ]
+  plugins: [
+    tailwindcss(),
+    sveltekit({
+      adapter: adapter(),
+      compilerOptions: {
+        experimental: { async: true }
+      }
+    })
+  ]
 });

@@ -13,7 +13,7 @@
   import { bracketMatching } from '@codemirror/language';
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
   import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
-  import { abc } from '$lib/codemirror/abc';
+  import { abc } from '#lib/codemirror/abc.js';
 
   // `value` is the initial document only (read once at mount); edits flow out via
   // onChange. No two-way binding — the editor owns its text after mount.

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { Attachment } from 'svelte/attachments';
-  import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
-  import * as sLib from '$lib/xmlplay/xmlplay_syn.js';
-  import commonAbc from '$lib/xmlplay/common.abc?raw';
-  import { loadAbc2svg, createLogerr, preprocessAbc } from '$lib/xmlplay/engine';
+  import * as mLib from '#lib/xmlplay/xmlplay_lib.js';
+  import * as sLib from '#lib/xmlplay/xmlplay_syn.js';
+  import commonAbc from '#lib/xmlplay/common.abc?raw';
+  import { loadAbc2svg, createLogerr, preprocessAbc } from '#lib/xmlplay/engine.js';
 
   const abc2svg = await loadAbc2svg();
   const Abc = abc2svg.Abc;

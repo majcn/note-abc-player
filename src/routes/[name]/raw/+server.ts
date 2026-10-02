@@ -1,4 +1,4 @@
-import { loadAbc } from '$lib/server/abc';
+import { loadAbc } from '#lib/server/abc.js';
 import type { RequestHandler } from './$types';
 
 const HEADERS = {
@@ -6,7 +6,7 @@ const HEADERS = {
   'Content-Type': 'text/plain; charset=utf-8'
 };
 
-export const GET: RequestHandler = async ({ params, platform }) => {
-  const body = await loadAbc(params.name!, platform?.env);
+export const GET: RequestHandler = async ({ params }) => {
+  const body = await loadAbc(params.name!);
   return new Response(body, { headers: HEADERS });
 };

@@ -1,1 +1,1 @@
-export { loadSongPage as load } from '$lib/server/abc';
+export { loadSongPage as load } from '#lib/server/abc.js';

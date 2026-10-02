@@ -1,5 +1,5 @@
 import { page } from '$app/state';
-import { replaceState } from '$app/navigation';
+import { goto } from '$app/navigation';
 
 export const TRANSPOSE_MAX = 12;
 
@@ -8,7 +8,7 @@ export function parseTranspose(param: string | null): number {
   return Number.isFinite(n) ? Math.max(-TRANSPOSE_MAX, Math.min(TRANSPOSE_MAX, n)) : 0;
 }
 
-// `?t=` backed transpose state; writes use shallow replaceState (no load re-run).
+// `?t=` backed transpose state; writes use shallow goto (no load re-run).
 export function transposeParam() {
   let value = $state(parseTranspose(page.url.searchParams.get('t')));
   return {
@@ -18,11 +18,10 @@ export function transposeParam() {
     set value(v: number) {
       value = v;
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- throwaway copy
-      const url = new URL(page.url);
+      const url = new URL(page.url.href);
       if (v) url.searchParams.set('t', String(v));
       else url.searchParams.delete('t');
-      // eslint-disable-next-line svelte/no-navigation-without-resolve -- current URL, query only
-      replaceState(url, page.state);
+      goto(url, { shallow: true, replace: true, state: page.state });
     }
   };
 }

@@ -1,20 +1,29 @@
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { error } from '@sveltejs/kit';
+import { env } from 'cloudflare:workers';
 
 // Song names become filesystem paths (dev) and Dropbox paths (prod), so restrict
 // to a safe charset to prevent path traversal (e.g. `../`, encoded slashes).
 const VALID_NAME = /^[a-zA-Z0-9_-]+$/;
 
 const ABC_ACCENTS: Record<string, Record<string, string>> = {
-  '"':  { A:'Ä', E:'Ë', I:'Ï', O:'Ö', U:'Ü', a:'ä', e:'ë', i:'ï', o:'ö', u:'ü', y:'ÿ' },
-  "'":  { A:'Á', E:'É', I:'Í', O:'Ó', U:'Ú', Y:'Ý', a:'á', e:'é', i:'í', o:'ó', u:'ú', y:'ý' },
-  '`':  { A:'À', E:'È', I:'Ì', O:'Ò', U:'Ù', a:'à', e:'è', i:'ì', o:'ò', u:'ù' },
-  '^':  { A:'Â', E:'Ê', I:'Î', O:'Ô', U:'Û', a:'â', e:'ê', i:'î', o:'ô', u:'û' },
-  '~':  { A:'Ã', N:'Ñ', O:'Õ', a:'ã', n:'ñ', o:'õ' },
-  ',':  { C:'Ç', c:'ç' },
+  '"': { A: 'Ä', E: 'Ë', I: 'Ï', O: 'Ö', U: 'Ü', a: 'ä', e: 'ë', i: 'ï', o: 'ö', u: 'ü', y: 'ÿ' },
+  "'": { A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú', Y: 'Ý', a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú', y: 'ý' },
+  '`': { A: 'À', E: 'È', I: 'Ì', O: 'Ò', U: 'Ù', a: 'à', e: 'è', i: 'ì', o: 'ò', u: 'ù' },
+  '^': { A: 'Â', E: 'Ê', I: 'Î', O: 'Ô', U: 'Û', a: 'â', e: 'ê', i: 'î', o: 'ô', u: 'û' },
+  '~': { A: 'Ã', N: 'Ñ', O: 'Õ', a: 'ã', n: 'ñ', o: 'õ' },
+  ',': { C: 'Ç', c: 'ç' }
 };
 const ABC_NAMED: Record<string, string> = {
-  ss:'ß', ae:'æ', AE:'Æ', oe:'œ', OE:'Œ', aa:'å', AA:'Å', o:'ø', O:'Ø',
+  ss: 'ß',
+  ae: 'æ',
+  AE: 'Æ',
+  oe: 'œ',
+  OE: 'Œ',
+  aa: 'å',
+  AA: 'Å',
+  o: 'ø',
+  O: 'Ø'
 };
 
 function decodeAbcText(text: string): string {
@@ -27,21 +36,19 @@ function decodeAbcText(text: string): string {
 // Shared `load` for the song pages (/[name], /[name]/edit, /[name]/pdf), which
 // all need exactly the same data: the song name and its ABC source.
 export async function loadSongPage({
-  params,
-  platform
+  params
 }: {
   params: { name: string };
-  platform: Readonly<App.Platform> | undefined;
 }): Promise<{ name: string; title: string; abc: string }> {
   const name = params.name;
-  const abc = await loadAbc(name, platform?.env);
+  const abc = await loadAbc(name);
   const title = decodeAbcText(abc.match(/^T:(.+)$/m)?.[1]?.trim() ?? name);
   return { name, title, abc };
 }
 
-export async function loadAbc(name: string, env: App.Platform['env'] | undefined): Promise<string> {
+export async function loadAbc(name: string): Promise<string> {
   if (!VALID_NAME.test(name)) error(400, 'invalid song name');
-  const abc = dev ? await readFromDummy(name) : await fetchFromDropbox(name, env!);
+  const abc = dev ? await readFromDummy(name) : await fetchFromDropbox(name);
   // The file exists but isn't a real ABC tune (no `X:` reference number header).
   // Validated here so every caller (page load + /abc endpoint) stays consistent.
   if (!abc.includes('X:')) error(422, 'not a valid abc file');
@@ -64,11 +71,11 @@ async function readFromDummy(name: string): Promise<string> {
 // isolate's lifetime — so this caches the token across requests and skips the
 // OAuth round-trip on every page load. Best-effort only: it's per-isolate (each
 // live isolate refreshes once) and lost on isolate eviction, never shared/durable.
-// `env`/bindings only exist inside a request, so this must fill lazily (not at
-// module init). Use KV if you ever need a guaranteed cross-isolate cache.
+// Filled lazily on first request, not at module init. Use KV if you ever need a
+// guaranteed cross-isolate cache.
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function getAccessToken(env: App.Platform['env']): Promise<string> {
+async function getAccessToken(): Promise<string> {
   // Reuse while still valid (we assume the response carries `expires_in`).
   if (cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
 
@@ -83,10 +90,8 @@ async function getAccessToken(env: App.Platform['env']): Promise<string> {
     })
   });
   if (!tokenRes.ok) error(502, 'Dropbox auth failed');
-  const { access_token, expires_in } = (await tokenRes.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
+
+  const { access_token, expires_in } = (await tokenRes.json()) as { access_token: string; expires_in: number };
 
   // Expire 60s early so we never hand out a token that dies mid-request.
   cachedToken = { value: access_token, expiresAt: Date.now() + (expires_in - 60) * 1000 };
@@ -104,14 +109,14 @@ function downloadFile(name: string, accessToken: string): Promise<Response> {
   });
 }
 
-async function fetchFromDropbox(name: string, env: App.Platform['env']): Promise<string> {
-  let fileRes = await downloadFile(name, await getAccessToken(env));
+async function fetchFromDropbox(name: string): Promise<string> {
+  let fileRes = await downloadFile(name, await getAccessToken());
 
   // 401 means our cached token was revoked/expired before our estimated TTL.
   // Drop the cache and retry once with a freshly minted token.
   if (fileRes.status === 401) {
     cachedToken = null;
-    fileRes = await downloadFile(name, await getAccessToken(env));
+    fileRes = await downloadFile(name, await getAccessToken());
   }
 
   if (!fileRes.ok) error(fileRes.status, `${name}.abc not found on Dropbox`);

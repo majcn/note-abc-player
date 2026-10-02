@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TRANSPOSE_MAX } from '$lib/transposeParam.svelte';
+  import { TRANSPOSE_MAX } from '#lib/transposeParam.svelte.js';
 
   const VOICE_NAMES = ['Prvi glas', 'Drugi glas', 'Tretji glas', 'Četrti glas'];
 

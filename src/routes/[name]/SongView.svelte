@@ -1,6 +1,6 @@
 <script lang="ts">
-  import SongPlayer from '$lib/components/SongPlayer.svelte';
-  import { transposeParam } from '$lib/transposeParam.svelte';
+  import SongPlayer from '#lib/components/SongPlayer.svelte';
+  import { transposeParam } from '#lib/transposeParam.svelte.js';
 
   // Read-only view: just the playback surface, no editor. The editable route
   // uses SongEditor instead.

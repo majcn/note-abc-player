@@ -1,17 +1,11 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
+  "extends": "$app/tsconfig",
   "compilerOptions": {
     "rewriteRelativeImportExtensions": true,
-    "allowJs": true,
-    "checkJs": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "moduleResolution": "bundler",
-    "types": ["./worker-configuration.d.ts"]
+    "types": ["./worker-configuration.d.ts", "$app/types"]
   },
-  "exclude": ["src/lib/vendor/**"]
+  "exclude": ["src/lib/vendor/**", "src/lib/xmlplay/xmlplay_lib.js", "src/lib/xmlplay/xmlplay_syn.js"],
+  "include": ["src"]
 }

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { ControlPanel } from '$lib/components/ControlPanel';
-  import { MusicSheet } from '$lib/components/MusicSheet';
-  import { ErrorToast } from '$lib/components/ErrorToast';
-  import { LoadingSpinner } from '$lib/components/LoadingSpinner';
+  import { ControlPanel } from '#lib/components/ControlPanel/index.js';
+  import { MusicSheet } from '#lib/components/MusicSheet/index.js';
+  import { ErrorToast } from '#lib/components/ErrorToast/index.js';
+  import { LoadingSpinner } from '#lib/components/LoadingSpinner/index.js';
 
   // The shared playback surface: rendered sheet + transport controls + error
   // toast, plus the player state they exchange. Both the read-only SongView and

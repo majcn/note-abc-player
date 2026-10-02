@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { PageProps } from './$types';
-  import { PrintSheet } from '$lib/components/PrintSheet';
-  import { ErrorToast } from '$lib/components/ErrorToast';
+  import { PrintSheet } from '#lib/components/PrintSheet/index.js';
+  import { ErrorToast } from '#lib/components/ErrorToast/index.js';
   import { page } from '$app/state';
-  import { parseTranspose } from '$lib/transposeParam.svelte';
+  import { parseTranspose } from '#lib/transposeParam.svelte.js';
 
   let { data }: PageProps = $props();
 

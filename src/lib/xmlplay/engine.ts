@@ -1,7 +1,7 @@
 // Shared abc2svg engine plumbing for MusicSheet (interactive) and PrintSheet
 // (static print view), so the loader, glyph defs and source preprocessing have
 // a single source of truth.
-import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
+import * as mLib from '#lib/xmlplay/xmlplay_lib.js';
 
 // Minimal shape we touch on the vendor module.
 export type Abc2Svg = {
@@ -21,7 +21,7 @@ let pageHaak: unknown = null;
 
 export async function loadAbc2svg(): Promise<Abc2Svg> {
   if (!cached) {
-    const mod = await import('$lib/vendor/abc2svg/abc2svg-bundle.js');
+    const mod = await import('#lib/vendor/abc2svg/abc2svg-bundle.js');
     cached = mod.default as Abc2Svg;
     tabHaak = cached.mhooks['strtab'];
     pageHaak = cached.mhooks['page'];

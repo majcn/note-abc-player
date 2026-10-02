@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { Attachment } from 'svelte/attachments';
-  import commonAbc from '$lib/xmlplay/common.abc?raw';
-  import { loadAbc2svg, createLogerr, preprocessAbc, type Abc2Svg } from '$lib/xmlplay/engine';
-  import { LoadingSpinner } from '$lib/components/LoadingSpinner';
+  import commonAbc from '#lib/xmlplay/common.abc?raw';
+  import { loadAbc2svg, createLogerr, preprocessAbc, type Abc2Svg } from '#lib/xmlplay/engine.js';
+  import { LoadingSpinner } from '#lib/components/LoadingSpinner/index.js';
 
   type Props = {
     abc: string;

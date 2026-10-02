@@ -10,3 +10,4 @@ bun.lockb
 /src/lib/vendor/
 /src/lib/xmlplay/xmlplay_lib.js
 /src/lib/xmlplay/xmlplay_syn.js
+worker-configuration.d.ts
