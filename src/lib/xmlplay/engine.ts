@@ -7,20 +7,24 @@ import * as mLib from '$lib/xmlplay/xmlplay_lib.js';
 export type Abc2Svg = {
   Abc: unknown;
   mhooks: Record<string, unknown>;
+  // Front-end hook slot; the page module wraps it to close the last page.
+  abc_end?: () => void;
 };
 
 // abc2svg is ~290 kB — dynamic import puts it in its own hashed chunk
 // (long-cache via _app/immutable/), loaded on first song. Cached at module
 // scope so both components (and repeated mounts) share one instance.
 let cached: Abc2Svg | null = null;
-// Original strtab hook, saved before preprocessAbc starts toggling it.
+// Original strtab / page hooks, saved before preprocessAbc starts toggling them.
 let tabHaak: unknown = null;
+let pageHaak: unknown = null;
 
 export async function loadAbc2svg(): Promise<Abc2Svg> {
   if (!cached) {
     const mod = await import('$lib/vendor/abc2svg/abc2svg-bundle.js');
     cached = mod.default as Abc2Svg;
     tabHaak = cached.mhooks['strtab'];
+    pageHaak = cached.mhooks['page'];
   }
   return cached;
 }
@@ -41,14 +45,21 @@ export function createLogerr(onError: ((message: string) => void) | undefined) {
   };
 }
 
-// Source preprocessing shared by both layout paths: toggle the string-tab hook
-// for tab+voicemap tunes, expand I:percmap, and inject the equal-temperament
-// glyph defs. Returns the text to hand to the engine.
-export function preprocessAbc(abc2svg: Abc2Svg, abctxt: string): string {
+// Source preprocessing shared by both layout paths: toggle the string-tab and
+// page hooks, expand I:percmap, and inject the equal-temperament glyph defs.
+// Returns the text to hand to the engine.
+export function preprocessAbc(abc2svg: Abc2Svg, abctxt: string, paged = false): string {
   if (/V:\w+\s*tab.*voicemap/s.test(abctxt)) {
     delete abc2svg.mhooks['strtab'];
   } else if (tabHaak) {
     abc2svg.mhooks['strtab'] = tabHaak;
+  }
+
+  // The page hook applies to every Abc instance; keep it off the interactive sheet.
+  if (paged && pageHaak) {
+    abc2svg.mhooks['page'] = pageHaak;
+  } else {
+    delete abc2svg.mhooks['page'];
   }
 
   if (abctxt.includes('I:percmap')) {
