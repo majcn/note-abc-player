@@ -141,6 +141,8 @@
   // render effect's dependencies.
   function renderNow(text: string, semitones: number) {
     untrack(() => {
+      // Re-render resets scroll to top; restore it afterwards.
+      const prevTop = abcElm?.scrollTop ?? 0;
       renderErrored = false;
       opt.transpose = semitones;
       try {
@@ -155,11 +157,17 @@
       if (!renderErrored) {
         onErrorClear?.();
       }
+      if (lastOffset != null) mLib.markBySourceOffset(lastOffset);
+      if (prevTop) abcElm?.scrollTo({ top: prevTop, behavior: 'instant' });
     });
   }
 
+  // Replayed after re-render.
+  let lastOffset: number | null = null;
+
   // Highlight/scroll to the note matching an editor cursor offset (into `abc`).
   export function highlightSource(offset: number) {
+    lastOffset = offset;
     mLib.markBySourceOffset(offset);
   }
 
