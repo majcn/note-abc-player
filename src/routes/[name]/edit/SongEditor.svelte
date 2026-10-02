@@ -10,7 +10,11 @@
   let { abc }: { abc: string } = $props();
 
   // Set by bind:this; structural types — we only call these exported methods.
-  let editor = $state<{ goToOffset: (pos: number) => void }>();
+  let editor = $state<{
+    goToOffset: (pos: number) => void;
+    chordAt: (pos: number) => string;
+    setChord: (pos: number, chord: string) => void;
+  }>();
   let player = $state<{ highlightSource: (offset: number) => void }>();
 
   // Editable copy of the loaded score, seeded once from the `abc` prop. The page
@@ -65,6 +69,46 @@
       relayoutSheet();
     }
     editor?.goToOffset(offset);
+  }
+
+  // Double-click a note: chord box at pointer. Enter/blur applies, Esc cancels.
+  const CHORD_BOX_PX = 200;
+  let chord = $state<{ offset: number; x: number; y: number; value: string } | null>(null);
+  let chordInput = $state<HTMLInputElement>();
+
+  async function openChord(offset: number, x: number, y: number) {
+    if (!editing) {
+      editing = true;
+      await tick();
+      relayoutSheet();
+    }
+    chord = {
+      offset,
+      x: Math.min(x, window.innerWidth - CHORD_BOX_PX - 16),
+      y,
+      value: editor?.chordAt(offset) ?? ''
+    };
+    await tick();
+    chordInput?.focus();
+    chordInput?.select();
+  }
+
+  // Clears `chord` first so the following blur is a no-op.
+  function applyChord() {
+    if (!chord) return;
+    const { offset, value } = chord;
+    chord = null;
+    editor?.setChord(offset, value.trim());
+  }
+
+  function chordKey(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyChord();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      chord = null;
+    }
   }
 
   function clampWidth(w: number) {
@@ -205,10 +249,29 @@
       abc={abcText}
       bind:transpose={transpose.value}
       onNoteClick={jumpToNote}
+      onNoteDblClick={openChord}
       onError={(msg) => (errors = parseErrors(msg))}
     />
   </div>
 </div>
+
+{#if chord}
+  <div
+    class="fixed z-150 rounded-md border border-neutral-700 bg-neutral-900 p-2 shadow-lg"
+    style="left: {chord.x}px; top: {chord.y}px; width: {CHORD_BOX_PX}px"
+  >
+    <input
+      bind:this={chordInput}
+      bind:value={chord.value}
+      onkeydown={chordKey}
+      onblur={applyChord}
+      placeholder="Chord, e.g. Am"
+      aria-label="Chord"
+      class="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-white placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none"
+    />
+    <p class="mt-1 text-[11px] text-neutral-500">Enter or click away to apply · empty removes · Esc to cancel</p>
+  </div>
+{/if}
 
 <!-- Editor toggle — desktop only -->
 <button

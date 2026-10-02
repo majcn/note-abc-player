@@ -143,6 +143,38 @@
     view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true });
     view.focus();
   }
+
+  // Chord = quoted string before a note ("Am"^c2); ^ _ < > @ prefixes are annotations.
+  const ANNOTATION = /^[\^_<>@]/;
+  function chordSpan(pos: number) {
+    const doc = view!.state.doc;
+    const at = (i: number) => doc.sliceString(i, i + 1);
+
+    let from = Math.max(0, Math.min(pos, doc.length));
+    while (from > 0 && ACCIDENTAL.test(at(from - 1))) from--;
+
+    if (at(from - 1) === '"') {
+      let open = from - 2;
+      while (open >= 0 && at(open) !== '"' && at(open) !== '\n') open--;
+      const text = doc.sliceString(open + 1, from - 1);
+      if (at(open) === '"' && !ANNOTATION.test(text)) return { from: open, to: from, text };
+    }
+    return { from, to: from, text: '' };
+  }
+
+  export function chordAt(pos: number) {
+    if (!view || !Number.isFinite(pos)) return '';
+    return chordSpan(pos).text;
+  }
+
+  // Empty `chord` removes it.
+  export function setChord(pos: number, chord: string) {
+    if (!view || !Number.isFinite(pos)) return;
+    const { from, to } = chordSpan(pos);
+    const insert = chord ? `"${chord}"` : '';
+    if (insert === view.state.doc.sliceString(from, to)) return;
+    view.dispatch({ changes: { from, to, insert } });
+  }
 </script>
 
 <div class={className} {@attach initEditor}></div>
