@@ -219,6 +219,10 @@
     const hasSmooth = CSS.supports('scroll-behavior', 'smooth');
     if (!hasSmooth) opt.nosm = 1;
 
+    // iOS: 'playback' session keeps sound on when the silent switch is on.
+    const audioSession = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (audioSession) audioSession.type = 'playback';
+
     const ac =
       window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     audioCtx = ac ? new ac() : null;
