@@ -17,6 +17,7 @@
     onSpeedChange: (v: number) => void;
     onTransposeChange: (v: number) => void;
     onRequestPlay: (isPlaying: boolean) => void;
+    printHref?: string;
   }
 
   let {
@@ -31,7 +32,8 @@
     onVolumeChange,
     onSpeedChange,
     onTransposeChange,
-    onRequestPlay
+    onRequestPlay,
+    printHref
   }: Props = $props();
 
   let open = $state(false);
@@ -94,6 +96,23 @@
         onSpeedStep={handleSpeedStep}
         onBpmCommit={handleBpmCommit}
       />
+      {#if printHref}
+        <a
+          href={printHref}
+          data-sveltekit-reload
+          class="flex h-[34px] shrink-0 items-center gap-1.5 rounded-full border border-panel-control-border bg-panel-control-bg px-3 text-xs font-medium text-panel-text transition hover:bg-panel-control-bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-panel-accent max-md:size-11 max-md:justify-center max-md:px-0"
+          aria-label="Natisni"
+          title="Natisni"
+        >
+          <!-- @material-design-icons/svg/filled/print.svg, inlined -->
+          <svg viewBox="0 0 24 24" class="size-[18px] max-md:size-[24px]" fill="currentColor" aria-hidden="true">
+            <path
+              d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"
+            />
+          </svg>
+          <span class="max-md:hidden">Natisni</span>
+        </a>
+      {/if}
       <!--
         Expand/collapse chevron (inline SVG, recolored via `text-*` + fill="currentColor").
           flex items-center justify-center   center the svg inside

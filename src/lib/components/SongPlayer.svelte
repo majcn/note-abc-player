@@ -16,9 +16,10 @@
     onNoteDblClick?: (offset: number, x: number, y: number) => void;
     onError?: (msg: string) => void;
     transpose?: number;
+    printHref?: string;
   };
 
-  let { abc, onNoteClick, onNoteDblClick, onError, transpose = $bindable(0) }: Props = $props();
+  let { abc, onNoteClick, onNoteDblClick, onError, transpose = $bindable(0), printHref }: Props = $props();
 
   let sheet = $state<{ highlightSource: (offset: number) => void }>();
   let errorMsg = $state<string | null>(null);
@@ -79,6 +80,7 @@
     onSpeedChange={(v) => (speed = v)}
     onTransposeChange={(v) => (transpose = v)}
     onRequestPlay={(v) => (isPlaying = v)}
+    {printHref}
   />
 </div>
 
