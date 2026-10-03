@@ -5,7 +5,11 @@
   let { data }: PageProps = $props();
 </script>
 
-<svelte:head><title>{data.title}</title></svelte:head>
+<svelte:head>
+  <title>{data.title}</title>
+  <meta property="og:title" content={data.title} />
+  <meta property="og:type" content="website" />
+</svelte:head>
 
 <!--
   Key on the song name so navigating between songs recreates SongView, giving it
